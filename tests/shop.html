@@ -1,0 +1,84 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ROOMFIT shop tests</title></head>
+<body><pre id="out">running…</pre>
+<script src="../js/rules.js"></script><script src="../js/catalog.js"></script><script src="../js/engine.js"></script>
+<script src="../js/layout.js"></script><script src="../js/nl.js"></script><script src="../js/ai.js"></script><script src="../js/shop.js"></script>
+<script>
+const log = [], fails = [];
+const ok = (n, c, x) => (c ? log : fails).push((c ? 'PASS ' : 'FAIL ') + n + (x ? '  — ' + x : ''));
+const room = { width: 320, length: 410, height: 280, provenance: { width: 'verified', length: 'verified' }, obstacles: [], openings: [
+  { id: 'd1', type: 'door', label: 'the door', wall: 'S', offset: 20, width: 90, hinge: 'start', swing: 'in', height: 210 },
+  { id: 'w1', type: 'window', label: 'the window', wall: 'N', offset: 85, width: 150, sill: 90, height: 120 } ] };
+
+// ---- mocked proxy: grounded Gemini response + link checks ----
+const MOCK_PRODUCTS = [
+  { name: 'Grounded Study Desk', retailer: 'shop-a.in', category: 'study desk', price: 12999, currency: 'INR', dimensions: { widthCm: 120, depthCm: 60, heightCm: 75 }, dimensionsText: 'W 120 x D 60 x H 75 cm', dimensionsVerified: true, productUrl: 'https://www.shop-a.in/p/desk-120', sourceUrl: 'https://www.shop-a.in/p/desk-120' },
+  { name: 'Invented Desk', retailer: 'madeup.example', category: 'desk', price: 9999, dimensions: { widthCm: 100, depthCm: 50, heightCm: 75 }, dimensionsText: '100x50x75', dimensionsVerified: true, productUrl: 'https://madeup.example/desk' },
+  { name: 'Dead Link Desk', retailer: 'shop-a.in', category: 'desk', price: 8000, dimensions: { widthCm: 100, depthCm: 50, heightCm: 75 }, dimensionsText: '100x50x75', dimensionsVerified: true, productUrl: 'https://www.shop-a.in/p/gone' },
+  { name: 'No Size Desk', retailer: 'shop-b.com', category: 'desk', price: 7000, dimensions: { widthCm: null, depthCm: null, heightCm: null }, dimensionsText: null, dimensionsVerified: false, productUrl: 'https://shop-b.com/x' },
+  { name: 'Huge Desk', retailer: 'shop-b.com', category: 'desk', price: 14000, dimensions: { widthCm: 450, depthCm: 80, heightCm: 75 }, dimensionsText: '450 x 80 x 75 cm', dimensionsVerified: true, productUrl: 'https://shop-b.com/huge' },
+  { name: 'No Height Desk', retailer: 'shop-b.com', category: 'desk', price: 6000, dimensions: { widthCm: 110, depthCm: 55, heightCm: null }, dimensionsText: '110 x 55 cm', dimensionsVerified: true, productUrl: 'https://shop-b.com/nh' },
+  { name: 'Pricey Desk', retailer: 'shop-b.com', category: 'desk', price: 39000, dimensions: { widthCm: 120, depthCm: 60, heightCm: 75 }, dimensionsText: '120x60x75', dimensionsVerified: true, productUrl: 'https://shop-b.com/pricey' }
+];
+let lastBody = null;
+window.fetch = async (url, opts) => {
+  lastBody = JSON.parse(opts.body);
+  if (url.endsWith('/api/products/search')) {
+    const gemini = { candidates: [{ content: { parts: [{ text: '```json\n' + JSON.stringify({ products: MOCK_PRODUCTS }) + '\n```' }] },
+      groundingMetadata: { webSearchQueries: ['study desk under 15000'], groundingChunks: [{ web: { uri: 'https://vertexaisearch.cloud.google.com/x', title: 'shop-a.in' } }, { web: { uri: 'https://vertexaisearch.cloud.google.com/y', title: 'shop-b.com' } }] } }] };
+    return { ok: true, json: async () => ({ searchedAt: '2026-10-02T10:00:00Z', linkChecks: { 'https://www.shop-a.in/p/gone': 'missing', 'https://www.shop-a.in/p/desk-120': 'ok' }, gemini }) };
+  }
+  return { ok: false, status: 500, json: async () => ({}) }; // /gemini parse → forces built-in parser fallback
+};
+localStorage.removeItem('rf.shopCache.v1');
+RF.ai.setProxyUrl('http://mock.local');
+
+(async () => {
+  try {
+    const req = await RF.shop.parseRequest('Find me a study desk under ₹15,000');
+    ok('parse category+budget', req.category === 'study desk' && req.budget.max === 15000, JSON.stringify(req.understood) + ' via ' + req.parsedBy);
+    const f1 = RF.shop.parseLocal('Only show wooden ones under ₹12,000', req);
+    ok('follow-up keeps category, adds material + budget', f1.category === 'study desk' && f1.material === 'wood' && f1.budget.max === 12000, JSON.stringify(f1.understood));
+    const f2 = RF.shop.parseLocal("Make sure they're less than 130cm wide", f1);
+    ok('follow-up width limit, keeps material', f2.requiredDimensions.maxWidthCm === 130 && f2.material === 'wood' && f2.budget.max === 12000, JSON.stringify(f2.understood));
+    const f3 = RF.shop.parseLocal('Find a sofa', f2);
+    ok('new category resets state', f3.category === 'sofa' && !f3.material && !f3.budget.max);
+    const f4 = RF.shop.parseLocal('Find me a desk under ₹10,000 with at least 120cm width');
+    ok('min width + budget', f4.requiredDimensions.minWidthCm === 120 && f4.budget.max === 10000, JSON.stringify(f4));
+
+    const env = { room, items: [], rules: {}, constraints: {}, selected: null };
+    const res = await RF.shop.search(req, env, () => {});
+    const names = res.products.map(p => p.name);
+    ok('ungrounded link rejected', !names.includes('Invented Desk'), names.join(', '));
+    ok('dead link rejected', !names.includes('Dead Link Desk'));
+    ok('budget filter removes ₹39,000 desk', !names.includes('Pricey Desk'));
+    ok('room context sent without photos', lastBody.roomContext && lastBody.roomContext.roomWidthCm === 320 && !JSON.stringify(lastBody).includes('base64'), JSON.stringify(lastBody.roomContext.availableSpaces[0]));
+    ok('spatial constraints derived from room', lastBody.request.spatialConstraints.maxWidthCm > 0, JSON.stringify(lastBody.request.spatialConstraints));
+    const by = n => res.fitResults[res.products.findIndex(p => p.name === n)];
+    const g = by('Grounded Study Desk');
+    ok('grounded verified desk fits', g.status === 'fits' && g.confidence === 'verified', g.status + ' ' + g.reasons[0]);
+    ok('facts are engine numbers', g.facts.find(x => x.label === 'Product width').value === 120 && g.availableWidthCm === g.item.w + g.remainingWidthCm, JSON.stringify(g.facts));
+    const ns = by('No Size Desk');
+    ok('missing dims → unknown, never fits', ns.status === 'unknown' && !ns.fits);
+    const hu = by('Huge Desk');
+    ok('450 cm desk does not fit with shortfall', hu.status === 'does_not_fit' && hu.shortfalls.length && hu.shortfalls[0].short > 0, JSON.stringify(hu.shortfalls[0]));
+    const nh = by('No Height Desk');
+    ok('missing height → partial, not verified fit', nh.status === 'partial', nh.status + ': ' + nh.reasons[0]);
+    ok('retrievedAt recorded', res.products.every(p => p.retrievedAt === '2026-10-02T10:00:00Z'));
+    const alt = RF.shop.derive('alternatives', req, res.products.find(p => p.name === 'Huge Desk'), hu);
+    ok('alternatives preserve category/budget and cap width to the room', alt.category === 'study desk' && alt.budget.max === 15000 && alt.requiredDimensions.maxWidthCm <= 410 && alt.excludeNames.includes('Huge Desk'), JSON.stringify(alt.requiredDimensions));
+    const ch = RF.shop.derive('cheaper', req, res.products[0]);
+    ok('cheaper lowers budget below product price', ch.budget.max < 12999, String(ch.budget.max));
+    // replace-in-place uses the existing footprint
+    const desk = RF.instance(RF.catalog.get('desk_004'), { x: 100, y: 45, facing: 'S' });
+    const area = RF.shop.targetArea(room, [desk], Object.assign(RF.shop.emptyRequest(), { category: 'desk', placement: 'replace_selected' }), desk, {});
+    const fr = RF.shop.validateProductAgainstRoom(res.products[0], room, { items: [desk], area });
+    ok('replace places product flush to the same wall', fr.status === 'fits' && fr.placement.wall === 'N' && fr.item.x === 100, JSON.stringify(fr.placement));
+    // sample provider is labelled
+    RF.ai.setProxyUrl('');
+    const s = await RF.shop.search(Object.assign(RF.shop.emptyRequest(), { category: 'desk' }), env, () => {});
+    ok('without proxy: sample catalog, clearly labelled', s.metadata.provider === 'ROOMFIT sample catalog' && s.products.every(p => p.sample && !p.productUrl) && /not live listings/.test(s.metadata.warnings[0]));
+  } catch (e) { fails.push('EXCEPTION ' + e.stack); }
+  document.getElementById('out').textContent = (fails.length ? fails.length + ' FAILED\n' : 'ALL PASSED\n') + fails.concat(log).join('\n');
+})();
+</script></body></html>

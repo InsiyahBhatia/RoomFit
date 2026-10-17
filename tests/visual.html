@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ROOMFIT visual check</title><link rel="stylesheet" href="../css/style.css">
+<style>body{padding:16px}.g{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.g svg{width:100%;height:520px;background:var(--sheet)}pre{font-size:11px;white-space:pre-wrap}</style></head>
+<body><div class="g" id="g"></div>
+<script src="../js/rules.js"></script><script src="../js/catalog.js"></script><script src="../js/engine.js"></script><script src="../js/layout.js"></script><script src="../js/plan2d.js"></script>
+<script>
+const room = { width: 320, length: 410, height: 280, obstacles: [], openings: [
+  { id: 'd1', type: 'door', label: 'the door', wall: 'S', offset: 20, width: 90, hinge: 'start', swing: 'in', height: 210 },
+  { id: 'w1', type: 'window', label: 'the window', wall: 'N', offset: 85, width: 150, sill: 90, height: 120 } ] };
+const P = id => RF.catalog.get(id), g = document.getElementById('g');
+function show(title, items) {
+  const v = RF.validate(room, items, { computeMaxWidth: true });
+  const d = document.createElement('div');
+  d.innerHTML = `<h3>${title}</h3><svg></svg><pre>${v.ok ? 'VALID' : 'INVALID'} walkway ${v.circulation.maxWidth}\n${items.map(i => `${i.name} ${i.x},${i.y} ${i.facing}`).join('\n')}\n${v.violations.map(x => x.name + ': ' + x.detail).join('\n')}</pre>`;
+  g.appendChild(d);
+  RF.Plan2D(d.querySelector('svg')).set({ room, items, validation: v, zones: 'all' });
+}
+const fl = RF.generateLayout(room, { required: [{ category: 'bed', qty: 1, hint: 'queen' }, { category: 'wardrobe', qty: 1 }, { category: 'desk', qty: 1 }] }, 'balanced', {});
+show('Queen + wardrobe + desk (balanced)', fl.items);
+const others = fl.items.filter(i => i.category !== 'desk' && i.category !== 'chair');
+const r2 = RF.findPlacement(room, others, RF.instance(P('desk_004')), {});
+show('…with Executive Desk via fit check', others.concat(r2.item));
+const L = RF.generateLayouts(room, { required: [{ category: 'desk', qty: 1, hint: 'gaming' }, { category: 'bookshelf', qty: 1 }] }, { budget: 70000 });
+show('Study + gaming, Layout B', L[1].items);
+</script></body></html>

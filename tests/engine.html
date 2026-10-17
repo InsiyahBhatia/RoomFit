@@ -1,0 +1,115 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ROOMFIT engine tests</title></head>
+<body><pre id="out">running…</pre>
+<script src="../js/rules.js"></script>
+<script src="../js/catalog.js"></script>
+<script src="../js/engine.js"></script>
+<script src="../js/layout.js"></script>
+<script src="../js/nl.js"></script>
+<script>
+const log = [], fails = [];
+function ok(name, cond, extra) { (cond ? log : fails).push((cond ? 'PASS ' : 'FAIL ') + name + (extra ? '  — ' + extra : '')); }
+const room = { width: 320, length: 410, height: 280, obstacles: [], openings: [
+  { id: 'd1', type: 'door', label: 'the door', wall: 'S', offset: 20, width: 90, hinge: 'start', swing: 'in', height: 210 },
+  { id: 'w1', type: 'window', label: 'the window', wall: 'N', offset: 85, width: 150, sill: 90, height: 120 } ] };
+const P = id => RF.catalog.get(id);
+try {
+  // collision
+  const a = RF.instance(P('desk_002'), { x: 100, y: 30, facing: 'S' });
+  const b = RF.instance(P('shelf_001'), { x: 150, y: 20, facing: 'S' });
+  let v = RF.validate(room, [a, b], { skipCirculation: true });
+  ok('collision detected', v.violations.some(x => x.id === 'collision'), JSON.stringify(v.violations.map(x => x.detail)));
+  // outside room
+  const c = RF.instance(P('desk_002'), { x: 300, y: 30, facing: 'S' });
+  v = RF.validate(room, [c], { skipCirculation: true });
+  ok('outside room detected', v.violations.some(x => x.id === 'inside'), v.violations.map(x => x.detail).join());
+  // door blocked: wardrobe in the door swing
+  const wd = RF.instance(P('ward_003'), { x: 100, y: 380, facing: 'N' });
+  v = RF.validate(room, [wd], { skipCirculation: true });
+  ok('door swing blocked', v.violations.some(x => x.id === 'door'), v.violations.map(x => x.detail).join(' | '));
+  // wardrobe next to door is fine
+  const wd2 = RF.instance(P('ward_003'), { x: 320 - 75, y: 410 - 27.5, facing: 'N' });
+  v = RF.validate(room, [wd2], { skipCirculation: true });
+  ok('wardrobe beside door ok', v.ok, v.violations.map(x => x.detail).join(' | '));
+  // tall item covering window
+  const sh = RF.instance(P('shelf_002'), { x: 160, y: 17.5, facing: 'S' });
+  v = RF.validate(room, [sh], { skipCirculation: true });
+  ok('window covered by tall shelf', v.violations.some(x => x.id === 'window'));
+  // desk under window ok
+  const dk = RF.instance(P('desk_002'), { x: 160, y: 30, facing: 'S' });
+  v = RF.validate(room, [dk], {});
+  ok('desk under window ok', v.ok, v.violations.map(x => x.detail).join(' | '));
+  // front clearance
+  const dk2 = RF.instance(P('desk_002'), { x: 160, y: 30, facing: 'S' });
+  const bl = RF.instance(P('chest_001'), { x: 160, y: 60 + 54 + 22.5, facing: 'N' });
+  v = RF.validate(room, [dk2, bl], { skipCirculation: true });
+  const fc = v.items[dk2.uid].checks.find(x => x.id === 'front');
+  ok('front clearance 80 required / 54 available', fc && fc.status === 'fail' && fc.required === 80 && fc.available === 54, fc && fc.detail);
+  // circulation: room width blocked
+  const big = RF.instance(P('desk_004'), { x: 160, y: 200, facing: 'S' });
+  const big2 = RF.instance(P('bed_king_001'), { x: 160, y: 200, facing: 'S' });
+  v = RF.validate(room, [RF.instance(P('ward_slide_001'), { x: 90, y: 200, facing: 'E' }), RF.instance(P('ward_slide_001'), { x: 230, y: 200, facing: 'W' })], {});
+  ok('max walkway computed', RF.maxWalkWidth(room, [dk], RF.effectiveRules()) >= 60, String(RF.maxWalkWidth(room, [dk], RF.effectiveRules())));
+  // suggestion
+  const s = RF.suggestFix(room, [wd], wd.uid, {});
+  ok('fix suggestion found', !!s, s && s.text);
+  // accessibility increases bed sides
+  const bed = RF.instance(P('bed_queen_001'), { x: 82.5, y: 105, facing: 'S' });
+  v = RF.validate(room, [bed], { constraints: { accessibility: true }, skipCirculation: true });
+  ok('accessibility: bed in corner fails both-sides rule', v.violations.some(x => x.id === 'side'));
+  v = RF.validate(room, [bed], { skipCirculation: true });
+  ok('normal: bed in corner passes one-side rule', !v.violations.some(x => x.id === 'side'), v.violations.map(x => x.detail).join());
+  // fit mode
+  const fitL = RF.findPlacement(room, [], RF.instance(P('desk_002')), {});
+  ok('fit: study desk fits empty room', fitL.ok);
+  const huge = RF.instance({ id: 'x', name: 'Huge', category: 'other', width_cm: 450, depth_cm: 100, height_cm: 80, clearance_front_cm: 80 });
+  const fitH = RF.findPlacement(room, [], huge, {});
+  ok('fit: 450 cm item does not fit', !fitH.ok, fitH.validation && fitH.validation.violations.map(x => x.detail).join(' | '));
+  const tight = [RF.instance(P('desk_002'), { x: 160, y: 30, facing: 'S' })];
+  const fitW = RF.findPlacement(room, tight, RF.instance(P('ward_slide_001')), {});
+  ok('fit: sliding wardrobe placed without breaking desk', fitW.ok && fitW.validation.ok, fitW.validation && fitW.validation.violations.map(x => x.detail).join(' | '));
+  // layouts
+  const t0 = performance.now();
+  const req = { required: [{ category: 'desk', qty: 1, hint: 'gaming' }, { category: 'bookshelf', qty: 1 }, { category: 'bed', qty: 1, hint: 'single' }] };
+  const Ls = RF.generateLayouts(room, req, { budget: 70000 }, { cheapest: true });
+  const dt = Math.round(performance.now() - t0);
+  ok('layouts generated (' + dt + ' ms)', Ls.filter(l => l.ok).length >= 3, Ls.map(l => l.letter + ':' + (l.ok ? 'ok ' + l.items.length + ' items ₹' + l.metrics.total + ' free ' + l.metrics.floorFreePct + '% walk ' + l.metrics.walkwayCm : l.reason)).join(' || '));
+  ok('all ok layouts validate', Ls.filter(l => l.ok).every(l => RF.validate(room, l.items, {}).ok));
+  const near = RF.generateLayout(room, req, 'balanced', { constraints: { desk_near_window: true } });
+  const desk = near.ok && near.items.find(i => i.category === 'desk');
+  ok('desk near window constraint', desk && RF.distRectPoint(RF.rectOf(desk), RF.openingGeom(room, room.openings[1]).mid) < 60, desk && JSON.stringify({ x: desk.x, y: desk.y, f: desk.facing }));
+  const near2 = RF.generateLayout(room, { required: [{ category: 'desk', qty: 1, hint: 'gaming' }, { category: 'bookshelf', qty: 1 }] }, 'cheapest', { constraints: { desk_near_window: true } });
+  const d2 = near2.ok && near2.items.find(i => i.category === 'desk');
+  ok('cheapest + near window puts desk under the window', d2 && RF.distRectPoint(RF.rectOf(d2), RF.openingGeom(room, room.openings[1]).mid) === 0, d2 && JSON.stringify({ x: d2.x, y: d2.y, f: d2.facing }));
+  // demo: swapping in a large desk in a full study+gaming+bed room
+  const full = RF.generateLayout(room, { required: [{ category: 'bed', qty: 1, hint: 'single' }, { category: 'wardrobe', qty: 1 }, { category: 'desk', qty: 1 }] }, 'balanced', {});
+  ok('bedroom+study layout valid', full.ok, full.reason);
+  if (full.ok) {
+    const others = full.items.filter(i => i.category !== 'desk' && i.category !== 'chair');
+    const exec = RF.findPlacement(room, others, RF.instance(P('desk_004')), {});
+    log.push('INFO executive desk in full room: ' + (exec.ok ? 'fits' : 'does not fit — ' + exec.validation.violations.map(x => x.name + ': ' + x.detail).join(' | ')));
+  }
+  for (const bedHint of ['double', 'queen']) {
+    const fl = RF.generateLayout(room, { required: [{ category: 'bed', qty: 1, hint: bedHint }, { category: 'wardrobe', qty: 1 }, { category: 'desk', qty: 1 }] }, 'balanced', {});
+    if (!fl.ok) { log.push('INFO ' + bedHint + ' layout: ' + fl.reason); continue; }
+    const others = fl.items.filter(i => i.category !== 'desk' && i.category !== 'chair');
+    for (const id of ['desk_004', 'desk_005', 'desk_001']) {
+      const r2 = RF.findPlacement(room, others, RF.instance(P(id)), {});
+      log.push(`INFO ${bedHint} bed + wardrobe, ${P(id).name}: ` + (r2.ok ? 'fits' : 'does not fit — ' + r2.validation.violations.slice(0, 2).map(x => x.name + ': ' + x.detail).join(' | ')));
+    }
+  }
+  // NL
+  const n1 = RF.nl.parse('I need a study + gaming room under ₹70,000');
+  ok('nl budget', n1.budget === 70000, JSON.stringify(n1));
+  ok('nl desk', n1.required && n1.required.some(r => r.category === 'desk'));
+  const n2 = RF.nl.parse("I don't want anything mounted to the wall and keep the bed away from the window");
+  ok('nl wall + bed window', n2.constraints.wall_mount_allowed === false && n2.constraints.bed_avoid_window === true, JSON.stringify(n2.constraints));
+  const n3 = RF.nl.parse('Show me the cheapest layout');
+  ok('nl cheapest', n3.intent === 'cheapest');
+  const n4 = RF.nl.parse('I need a queen bed, wardrobe and dressing table');
+  ok('nl queen bed etc', n4.required.length === 3 && n4.required[0].hint === 'queen', JSON.stringify(n4.required));
+  const n5 = RF.nl.parse('I want a living room for five people');
+  ok('nl people', n5.people === 5 && n5.required.some(r => r.category === 'sofa'), JSON.stringify(n5));
+} catch (e) { fails.push('EXCEPTION ' + e.stack); }
+document.getElementById('out').textContent = (fails.length ? fails.length + ' FAILED\n' : 'ALL PASSED\n') + fails.concat(log).join('\n');
+</script></body></html>

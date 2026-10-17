@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROOMFIT</title>
+<meta name="description" content="Upload your room. Add your furniture. ROOMFIT checks the space, clearance, layout and budget before you commit.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='26' height='26' rx='3' fill='none' stroke='%2314222C' stroke-width='3'/%3E%3Cpath d='M3 22h10' stroke='%23F2C12E' stroke-width='4'/%3E%3C/svg%3E">
+<script>try{var t=localStorage.getItem('rf.theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <a class="brand" href="#/" aria-label="ROOMFIT home"><span class="brand-mark" aria-hidden="true"></span>ROOMFIT</a>
+  <nav class="nav" aria-label="Main">
+    <a href="#/setup" data-nav="setup">Room</a>
+    <a href="#/design" data-nav="design">Design</a>
+    <a href="#/fit" data-nav="fit">Check fit</a>
+  </nav>
+  <div class="top-actions">
+    <button class="btn-quiet" id="btnSave" type="button">Save</button>
+    <button class="btn-quiet" id="btnShare" type="button">Share</button>
+    <button class="icon-btn" id="btnSettings" type="button" aria-label="Settings and privacy" title="Settings and privacy">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>
+    </button>
+    <button class="icon-btn" id="btnTheme" type="button" aria-label="Switch light or dark mode" title="Light / dark">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" class="fill"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ================= LANDING ================= -->
+<section class="view" id="view-landing" data-view="landing">
+  <div class="hero">
+    <div class="hero-copy">
+      <h1 class="hero-title" id="heroTitle">Know it fits before you buy&nbsp;it.</h1>
+      <div class="hero-measure" id="heroMeasure" aria-hidden="true"><span></span></div>
+      <p class="hero-sub">Upload your room. Add your furniture. ROOMFIT checks the space, clearance, layout and budget before you commit.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#/setup">Design my room</a>
+        <a class="btn btn-ghost" href="#/fit">Check furniture fit</a>
+      </div>
+    </div>
+    <figure class="hero-plan">
+      <div class="plan-frame">
+        <svg id="heroPlan" class="plan" role="img" aria-label="Interactive floor plan, 320 by 410 centimetres. Drag the wardrobe to test placements." tabindex="0"></svg>
+        <p class="plan-hint">Drag the wardrobe toward the door.</p>
+      </div>
+      <figcaption class="verdict" id="heroVerdict" aria-live="polite"></figcaption>
+    </figure>
+  </div>
+
+  <section class="pipeline" aria-labelledby="pipeTitle">
+    <h2 id="pipeTitle">The AI proposes. The geometry decides.</h2>
+    <p class="lede">A photo can't tell you if a wardrobe door will clear your bed. ROOMFIT turns your room into measured geometry, then checks every piece against it.</p>
+    <svg class="pipe-diagram" viewBox="0 0 1000 150" role="img" aria-label="Photo, then AI perception, then room model, then geometry engine, then validated layout, then explanation">
+      <g class="pipe-group pipe-ai"><rect x="0" y="34" width="472" height="96" rx="14"/><text x="16" y="24">AI (estimates)</text></g>
+      <g class="pipe-group pipe-geo"><rect x="490" y="34" width="510" height="96" rx="14"/><text x="506" y="24">Geometry engine (measured, deterministic)</text></g>
+      <g class="pipe-steps">
+        <text x="80" y="88">Room photo</text>
+        <text x="236" y="88">Perception</text>
+        <text x="392" y="88">Room model</text>
+        <text x="572" y="88">Collision &amp; clearance</text>
+        <text x="758" y="88">Valid layouts</text>
+        <text x="920" y="88">Why</text>
+      </g>
+      <path class="pipe-arrows" d="M140 82h40M296 82h40M452 82h56M676 82h28M832 82h40"/>
+    </svg>
+    <div class="trust">
+      <div class="trust-item"><svg viewBox="0 0 80 12" aria-hidden="true"><path class="trust-verified" d="M2 6h76"/></svg><div><strong>Verified</strong><p>You measured it. Fit results are exact to your numbers.</p></div></div>
+      <div class="trust-item"><svg viewBox="0 0 80 12" aria-hidden="true"><path class="trust-est" d="M2 6h76"/></svg><div><strong>Estimated</strong><p>Read from a photo. Add one tape measurement to lock the scale.</p></div></div>
+      <div class="trust-item"><svg viewBox="0 0 80 12" aria-hidden="true"><path class="trust-unknown" d="M2 6h76"/></svg><div><strong>Unknown</strong><p>Not enough information. ROOMFIT asks rather than guesses.</p></div></div>
+    </div>
+  </section>
+  <footer class="site-foot">
+    <p>Room photos stay in your browser tab and are only sent for analysis when you ask. They're never stored or used for training. Catalog prices are sample data.</p>
+  </footer>
+</section>
+
+<!-- ================= SETUP ================= -->
+<section class="view" id="view-setup" data-view="setup" hidden>
+  <div class="setup">
+    <form class="setup-form" id="setupForm" novalidate>
+      <h1 class="page-title">Create your room</h1>
+      <p class="lede">Real dimensions make real answers. Measure wall to wall at floor level.</p>
+
+      <fieldset class="block">
+        <legend>Photos <span class="opt">optional</span></legend>
+        <label class="drop" id="photoDrop">
+          <input type="file" id="photoInput" accept="image/*" multiple>
+          <span>Add room photos</span>
+          <small>JPG or PNG. One photo can't measure a room exactly. ROOMFIT uses photos to find doors, windows and furniture, then asks you for a measurement.</small>
+        </label>
+        <div class="thumbs" id="photoThumbs"></div>
+        <div class="row gap">
+          <button type="button" class="btn btn-small" id="btnAnalyze" disabled>Analyse photos</button>
+          <button type="button" class="btn-quiet btn-small" id="btnClearPhotos" hidden>Remove photos</button>
+        </div>
+        <p class="note" id="analyzeNote"></p>
+      </fieldset>
+
+      <fieldset class="block">
+        <legend>Room dimensions</legend>
+        <div class="dims">
+          <label class="field"><span>Width (west–east)</span><span class="inp"><input type="number" id="dimW" min="100" max="2000" step="1" inputmode="numeric"><em>cm</em></span><span class="prov" data-prov="width"></span></label>
+          <label class="field"><span>Length (north–south)</span><span class="inp"><input type="number" id="dimL" min="100" max="2000" step="1" inputmode="numeric"><em>cm</em></span><span class="prov" data-prov="length"></span></label>
+          <label class="field"><span>Ceiling height</span><span class="inp"><input type="number" id="dimH" min="180" max="600" step="1" inputmode="numeric"><em>cm</em></span><span class="prov" data-prov="height"></span></label>
+        </div>
+        <div class="known" id="knownBox" hidden>
+          <p class="note warn" id="estWarn"></p>
+          <div class="row gap wrap">
+            <label class="field inline"><span>I measured the</span>
+              <select id="knownWhat"><option value="width">room width</option><option value="length">room length</option><option value="door">door width</option><option value="window">window width</option></select></label>
+            <label class="field inline"><span>as</span><span class="inp"><input type="number" id="knownVal" min="20" max="2000"><em>cm</em></span></label>
+            <button type="button" class="btn btn-small" id="btnRescale">Rescale estimates</button>
+          </div>
+        </div>
+        <label class="field"><span>Room type</span>
+          <select id="roomType"><option value="bedroom">Bedroom</option><option value="study">Study</option><option value="living">Living room</option><option value="guest">Guest room</option><option value="other">Other</option></select></label>
+      </fieldset>
+
+      <fieldset class="block">
+        <legend>Doors and windows</legend>
+        <p class="note">Offset is measured along the wall from its west end (north and south walls) or its north end (east and west walls).</p>
+        <div id="openingsList" class="rows"></div>
+        <div class="row gap"><button type="button" class="btn-quiet btn-small" id="btnAddDoor">Add door</button><button type="button" class="btn-quiet btn-small" id="btnAddWindow">Add window</button></div>
+      </fieldset>
+
+      <fieldset class="block">
+        <legend>Fixed objects and furniture you're keeping</legend>
+        <p class="note">Pillars, radiators, AC units: anything that can't move. Position is the top-left corner in the plan.</p>
+        <div id="obstaclesList" class="rows"></div>
+        <button type="button" class="btn-quiet btn-small" id="btnAddObstacle">Add fixed object</button>
+        <div id="existingList" class="rows"></div>
+        <button type="button" class="btn-quiet btn-small" id="btnAddExisting">Add furniture I'm keeping</button>
+      </fieldset>
+
+      <div class="setup-actions">
+        <button type="button" class="btn-quiet" id="btnSampleRoom">Use sample room (320 × 410 cm)</button>
+        <a class="btn btn-primary" href="#/design" id="btnToDesign">Continue to design</a>
+      </div>
+    </form>
+    <div class="setup-preview">
+      <div class="plan-frame sticky">
+        <svg id="setupPlan" class="plan" role="img" aria-label="Room preview"></svg>
+        <p class="plan-hint" id="setupSummary"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DESIGN WORKSPACE ================= -->
+<section class="view view-app" id="view-design" data-view="design" hidden>
+  <div class="workspace">
+    <aside class="panel" aria-label="Requirements">
+      <div class="panel-scroll">
+        <form class="ask" id="askForm">
+          <label for="reqText" class="ask-label">What are you trying to fit into this room?</label>
+          <textarea id="reqText" rows="3" placeholder="I need a study and gaming setup under ₹70,000"></textarea>
+          <div class="row between">
+            <span class="note" id="aiBadge"></span>
+            <button class="btn btn-primary btn-small" type="submit">Plan layouts</button>
+          </div>
+          <ul class="understood" id="understood" aria-live="polite"></ul>
+        </form>
+
+        <details class="sect" open>
+          <summary>Furniture</summary>
+          <div id="reqList" class="req-list"></div>
+          <div class="row gap">
+            <select id="reqAddCat" aria-label="Furniture type to add"></select>
+            <button type="button" class="btn-quiet btn-small" id="btnReqAdd">Add</button>
+          </div>
+        </details>
+
+        <details class="sect" open>
+          <summary>Budget</summary>
+          <label class="field"><span class="sr">Budget</span><span class="inp inp-lead"><em>₹</em><input type="number" id="budget" min="0" step="1000" inputmode="numeric" placeholder="No limit"></span></label>
+          <div class="meter" id="budgetMeter"><div class="meter-bar"><span></span></div><p class="meter-text"></p></div>
+        </details>
+
+        <details class="sect">
+          <summary>Preferences</summary>
+          <div class="pref">
+            <span class="pref-label">Style</span>
+            <div class="chips" id="styleChips"></div>
+          </div>
+          <div class="pref"><span class="pref-label">Storage</span><div class="seg" data-pref="storage_priority"><button type="button" data-v="low">Low</button><button type="button" data-v="normal">Normal</button><button type="button" data-v="high">High</button></div></div>
+          <div class="pref"><span class="pref-label">Natural light at desk</span><div class="seg" data-pref="natural_light_priority"><button type="button" data-v="normal">Normal</button><button type="button" data-v="high">High</button></div></div>
+          <label class="toggle"><input type="checkbox" id="cAccess"><span>Accessibility clearances</span><small>90 cm walkways, wider clearances, both bed sides reachable</small></label>
+          <label class="toggle"><input type="checkbox" id="cWallMount"><span>No wall mounting or drilling</span></label>
+          <label class="toggle"><input type="checkbox" id="cDoor"><span>Keep a clear entry zone at the door</span></label>
+          <label class="toggle"><input type="checkbox" id="cOpen"><span>Less cramped (wider walkways)</span></label>
+          <label class="toggle"><input type="checkbox" id="cBedWin"><span>Keep the bed away from the window</span></label>
+        </details>
+
+        <details class="sect">
+          <summary>Clearance rules</summary>
+          <p class="note">These numbers drive every check. Change them to match your home.</p>
+          <label class="range"><span>Minimum walkway <b class="num" id="rWalkV"></b></span><input type="range" id="rWalk" min="45" max="120" step="5"></label>
+          <label class="range"><span>Entry landing at the door <b class="num" id="rLandV"></b></span><input type="range" id="rLand" min="0" max="120" step="10"></label>
+          <label class="range"><span>Door must open to <b class="num" id="rDoorV"></b></span><input type="range" id="rDoor" min="70" max="90" step="5"></label>
+          <button type="button" class="btn-quiet btn-small" id="btnRulesReset">Reset to defaults</button>
+        </details>
+
+        <details class="sect" id="catalogSect">
+          <summary>Catalog</summary>
+          <p class="note">Sample catalog: typical sizes, illustrative prices. Not live listings.</p>
+          <input type="search" id="catSearch" placeholder="Search desks, wardrobes…" aria-label="Search catalog">
+          <ul class="cat-list" id="catList"></ul>
+        </details>
+      </div>
+    </aside>
+
+    <section class="stage" aria-label="3D room">
+      <div class="stage-canvas" id="stage3d"></div>
+      <div class="stage-top">
+        <div class="layout-tabs" id="layoutTabs" role="tablist" aria-label="Layouts"></div>
+        <div class="stage-tools">
+          <div class="seg seg-glass" id="viewSeg" role="group" aria-label="Camera"><button type="button" data-v="persp" class="is-on">Perspective</button><button type="button" data-v="top">Top</button></div>
+          <div class="seg seg-glass" id="zoneSeg" role="group" aria-label="Clearance zones"><button type="button" data-v="selected" class="is-on">Zones: selected</button><button type="button" data-v="all">All</button><button type="button" data-v="none">Off</button></div>
+          <button type="button" class="btn-glass" id="btnCompare">Compare</button>
+          <button type="button" class="btn-glass btn-find" id="btnFind" aria-expanded="false" aria-controls="shopPanel">Find furniture</button>
+        </div>
+      </div>
+
+      <aside class="shop" id="shopPanel" aria-label="Find furniture" hidden>
+        <div class="shop-head">
+          <div class="seg" id="shopTabs" role="tablist">
+            <button type="button" data-v="find" class="is-on" role="tab">Find furniture</button>
+            <button type="button" data-v="room" role="tab">Shop this room</button>
+          </div>
+          <button type="button" class="icon-btn" id="shopClose" aria-label="Close">×</button>
+        </div>
+        <div class="shop-body">
+          <section data-shop="find">
+            <form id="shopForm" class="shop-form">
+              <label class="sr" for="shopQuery">Describe the furniture you want</label>
+              <textarea id="shopQuery" rows="2" placeholder="Find me a study desk under ₹15,000 that fits this room"></textarea>
+              <div class="row between gap">
+                <label class="shop-where"><span>For</span>
+                  <select id="shopWhere">
+                    <option value="">Anywhere in the room</option>
+                    <option value="N">North wall</option><option value="E">East wall</option><option value="S">South wall</option><option value="W">West wall</option>
+                    <option value="replace">Replace the selected piece</option>
+                  </select></label>
+                <button type="submit" class="btn btn-primary btn-small">Search</button>
+              </div>
+              <div class="shop-state" id="shopState"></div>
+            </form>
+            <ol class="shop-steps" id="shopSteps" aria-live="polite"></ol>
+            <div id="shopMsg" aria-live="polite"></div>
+            <details class="shop-filters" id="shopFilters" hidden>
+              <summary>Filters and sort <span class="note" id="shopCount"></span></summary>
+              <div class="filters-grid">
+                <label class="range"><span>Max price <b class="num" id="fPriceV"></b></span><input type="range" id="fPrice" min="0" max="100000" step="500"></label>
+                <label class="range"><span>Max width <b class="num" id="fWidthV"></b></span><input type="range" id="fWidth" min="20" max="400" step="5"></label>
+                <label class="range"><span>Max depth <b class="num" id="fDepthV"></b></span><input type="range" id="fDepth" min="20" max="250" step="5"></label>
+                <label class="field"><span>Fit</span><select id="fFit"><option value="">Any result</option><option value="fits">Fits current space (geometry passed)</option><option value="checkable">Has dimensions</option><option value="unknown">Can't verify yet</option></select></label>
+                <label class="field"><span>Retailer</span><select id="fRetailer"><option value="">All</option></select></label>
+                <label class="field"><span>Availability</span><select id="fAvail"><option value="">Any</option><option value="reported">Reported by the listing</option></select></label>
+                <label class="field"><span>Style or material</span><input id="fText" placeholder="e.g. wood, white"></label>
+                <label class="field"><span>Sort</span><select id="fSort"><option value="relevance">Search relevance</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option><option value="width-asc">Width: small to large</option><option value="fit">Fit: verified first</option></select></label>
+              </div>
+            </details>
+            <ul class="shop-results" id="shopResults"></ul>
+            <div class="shop-sources" id="shopSources"></div>
+          </section>
+          <section data-shop="room" hidden>
+            <p class="note">ROOMFIT searches for a real product for each piece in your design, limited to the space that piece occupies, then checks each result with the geometry engine.</p>
+            <div class="row gap wrap">
+              <button type="button" class="btn btn-primary btn-small" id="btnShopRoom">Shop this room</button>
+              <label class="field inline"><span>Room budget</span><span class="inp inp-lead"><em>₹</em><input type="number" id="shopBudget" min="0" step="1000" placeholder="None"></span></label>
+            </div>
+            <div id="shopRoomOut" aria-live="polite"></div>
+          </section>
+        </div>
+      </aside>
+      <div class="stage-empty" id="stageEmpty" hidden>
+        <p>Tell ROOMFIT what you want in the room, or add pieces from the catalog.</p>
+      </div>
+      <form class="command" id="cmdForm">
+        <input id="cmdInput" autocomplete="off" placeholder="Make the desk smaller · Keep the bed away from the window · Show me the cheapest layout" aria-label="Change the design">
+        <button type="submit" class="btn btn-primary btn-small">Apply</button>
+      </form>
+    </section>
+
+    <footer class="dock" aria-label="Validation">
+      <div class="dock-col" id="dockChecks"></div>
+      <div class="dock-col" id="dockSelected"></div>
+      <div class="dock-col" id="dockWhy"></div>
+    </footer>
+  </div>
+</section>
+
+<!-- ================= WILL IT FIT ================= -->
+<section class="view" id="view-fit" data-view="fit" hidden>
+  <div class="fit">
+    <form class="fit-form" id="fitForm" novalidate>
+      <h1 class="page-title">Will it fit?</h1>
+      <p class="lede">Check one piece against your room before you buy it.</p>
+      <div class="seg seg-wide" id="fitMode" role="tablist">
+        <button type="button" data-v="catalog" class="is-on">From catalog</button>
+        <button type="button" data-v="dims">Enter dimensions</button>
+        <button type="button" data-v="image">Product image</button>
+      </div>
+      <div class="fit-pane" data-pane="catalog">
+        <label class="field"><span>Type</span><select id="fitCat"></select></label>
+        <label class="field"><span>Product</span><select id="fitProduct"></select></label>
+      </div>
+      <div class="fit-pane" data-pane="dims" hidden>
+        <label class="field"><span>Name</span><input id="fitName" value="My sofa"></label>
+        <div class="dims">
+          <label class="field"><span>Width</span><span class="inp"><input type="number" id="fitW" value="210"><em>cm</em></span></label>
+          <label class="field"><span>Depth</span><span class="inp"><input type="number" id="fitD" value="90"><em>cm</em></span></label>
+          <label class="field"><span>Height</span><span class="inp"><input type="number" id="fitH" value="85"><em>cm</em></span></label>
+        </div>
+        <div class="dims">
+          <label class="field"><span>Front clearance</span><span class="inp"><input type="number" id="fitFront" value="80"><em>cm</em></span></label>
+          <label class="field"><span>Door swing</span><span class="inp"><input type="number" id="fitDoor" value="0"><em>cm</em></span></label>
+          <label class="field"><span>Drawer pull</span><span class="inp"><input type="number" id="fitDrawer" value="0"><em>cm</em></span></label>
+        </div>
+        <label class="toggle"><input type="checkbox" id="fitWall"><span>Needs wall mounting</span></label>
+      </div>
+      <div class="fit-pane" data-pane="image" hidden>
+        <label class="drop"><input type="file" id="fitImage" accept="image/*"><span>Add a product photo or spec sheet</span><small>ROOMFIT reads printed dimensions only. It won't guess size from a picture.</small></label>
+        <p class="note" id="fitImageNote"></p>
+      </div>
+
+      <div class="fit-room" id="fitRoom"></div>
+      <label class="toggle" id="fitIncludeWrap"><input type="checkbox" id="fitInclude" checked><span>Include the furniture in my current design</span></label>
+      <button class="btn btn-primary" type="submit">Check fit</button>
+      <p class="note future">Coming later: whether it fits through your front door, corridor and lift. The room model already stores those connections, but ROOMFIT doesn't check delivery paths yet.</p>
+    </form>
+    <div class="fit-result">
+      <div class="plan-frame">
+        <svg id="fitPlan" class="plan" role="img" aria-label="Fit result plan" tabindex="0"></svg>
+        <p class="plan-hint">Drag the piece to test another spot.</p>
+      </div>
+      <div class="fit-verdict" id="fitVerdict" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<dialog id="dlgCompare" class="dlg dlg-wide" aria-labelledby="cmpTitle">
+  <div class="dlg-head"><h2 id="cmpTitle">Compare layouts</h2><button class="icon-btn" data-close aria-label="Close">×</button></div>
+  <p class="note">Measured attributes only. ROOMFIT doesn't pick a winner; you choose what matters.</p>
+  <div class="compare" id="compareGrid"></div>
+</dialog>
+
+<dialog id="dlgSettings" class="dlg" aria-labelledby="setTitle">
+  <div class="dlg-head"><h2 id="setTitle">Settings and privacy</h2><button class="icon-btn" data-close aria-label="Close">×</button></div>
+  <section class="dlg-sect">
+    <h3>Gemini AI</h3>
+    <p class="note">Photo analysis and AI wording go through a small proxy that holds your <code>GEMINI_API_KEY</code>, so the key never reaches the browser. Without it, ROOMFIT uses its built-in parser and all fit checks still work.</p>
+    <label class="field"><span>Proxy URL</span><input id="proxyUrl" placeholder="http://localhost:8787"></label>
+    <div class="row gap"><button type="button" class="btn btn-small" id="btnProxySave">Save and test</button><span class="note" id="proxyStatus"></span></div>
+  </section>
+  <section class="dlg-sect">
+    <h3>Your data</h3>
+    <p class="note">Rooms and designs are saved only in this browser. Photos are never saved. Accounts and cloud sync are planned; see <code>db/schema.sql</code>.</p>
+    <button type="button" class="btn btn-danger btn-small" id="btnDeleteAll">Delete all my data</button>
+  </section>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/catalog.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/nl.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/plan2d.js"></script>
+<script src="js/view3d.js"></script>
+<script src="js/app.js"></script>
+<script src="js/shop.js"></script>
+<script src="js/shop-ui.js"></script>
+</body>
+</html>
