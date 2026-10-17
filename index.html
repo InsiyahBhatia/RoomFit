@@ -21,8 +21,10 @@
     <a href="#/setup" data-nav="setup">Room</a>
     <a href="#/design" data-nav="design">Design</a>
     <a href="#/fit" data-nav="fit">Check fit</a>
+    <a href="#/delivery" data-nav="delivery">Delivery</a>
   </nav>
   <div class="top-actions">
+    <button class="btn-quiet" id="btnExport" type="button" title="Export floor plan or print spec sheet">Export</button>
     <button class="btn-quiet" id="btnSave" type="button">Save</button>
     <button class="btn-quiet" id="btnShare" type="button">Share</button>
     <button class="icon-btn" id="btnSettings" type="button" aria-label="Settings and privacy" title="Settings and privacy">
@@ -90,6 +92,16 @@
     <form class="setup-form" id="setupForm" novalidate>
       <h1 class="page-title">Create your room</h1>
       <p class="lede">Real dimensions make real answers. Measure wall to wall at floor level.</p>
+
+      <div class="preset-box">
+        <span class="preset-title">Quick Room Presets</span>
+        <div class="preset-chips" id="presetChips">
+          <button type="button" class="preset-chip" data-preset="study"><strong>Study / WFH</strong> 280 × 340 cm</button>
+          <button type="button" class="preset-chip" data-preset="studio"><strong>Studio 1BHK</strong> 320 × 420 cm</button>
+          <button type="button" class="preset-chip" data-preset="bedroom"><strong>Master Bedroom</strong> 380 × 480 cm</button>
+          <button type="button" class="preset-chip" data-preset="living"><strong>Living Lounge</strong> 420 × 520 cm</button>
+        </div>
+      </div>
 
       <fieldset class="block">
         <legend>Photos <span class="opt">optional</span></legend>
@@ -212,7 +224,10 @@
 
         <details class="sect" id="catalogSect">
           <summary>Catalog</summary>
-          <p class="note">Sample catalog: typical sizes, illustrative prices. Not live listings.</p>
+          <div class="row between" style="margin-bottom: 8px;">
+            <p class="note" style="margin: 0;">Sample &amp; custom items</p>
+            <button type="button" class="btn-quiet btn-small" id="btnAddCustomItem">+ Custom piece</button>
+          </div>
           <input type="search" id="catSearch" placeholder="Search desks, wardrobes…" aria-label="Search catalog">
           <ul class="cat-list" id="catList"></ul>
         </details>
@@ -227,6 +242,7 @@
           <div class="seg seg-glass" id="viewSeg" role="group" aria-label="Camera"><button type="button" data-v="persp" class="is-on">Perspective</button><button type="button" data-v="top">Top</button></div>
           <div class="seg seg-glass" id="zoneSeg" role="group" aria-label="Clearance zones"><button type="button" data-v="selected" class="is-on">Zones: selected</button><button type="button" data-v="all">All</button><button type="button" data-v="none">Off</button></div>
           <button type="button" class="btn-glass" id="btnCompare">Compare</button>
+          <button type="button" class="btn-glass" id="btnExportPlan" title="Export layout as SVG">Export SVG</button>
           <button type="button" class="btn-glass btn-find" id="btnFind" aria-expanded="false" aria-controls="shopPanel">Find furniture</button>
         </div>
       </div>
@@ -337,7 +353,9 @@
       <div class="fit-room" id="fitRoom"></div>
       <label class="toggle" id="fitIncludeWrap"><input type="checkbox" id="fitInclude" checked><span>Include the furniture in my current design</span></label>
       <button class="btn btn-primary" type="submit">Check fit</button>
-      <p class="note future">Coming later: whether it fits through your front door, corridor and lift. The room model already stores those connections, but ROOMFIT doesn't check delivery paths yet.</p>
+      <div class="row gap wrap" style="margin-top: 12px;">
+        <a class="btn btn-ghost btn-small" id="btnFitCheckDelivery" href="#/delivery">Check building delivery path &rarr;</a>
+      </div>
     </form>
     <div class="fit-result">
       <div class="plan-frame">
@@ -345,6 +363,102 @@
         <p class="plan-hint">Drag the piece to test another spot.</p>
       </div>
       <div class="fit-verdict" id="fitVerdict" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DELIVERY PATH CHECKER ================= -->
+<section class="view" id="view-delivery" data-view="delivery" hidden>
+  <div class="delivery-container">
+    <div class="delivery-head">
+      <h1 class="page-title">Delivery &amp; Entryway Fit Calculator</h1>
+      <p class="lede">Will that furniture physically pass through your building entrance, elevator, stairs, and doors? ROOMFIT computes 3D bounding box passability and corner turning clearances.</p>
+    </div>
+
+    <div class="delivery-layout">
+      <form class="delivery-form" id="deliveryForm" onsubmit="event.preventDefault()">
+        <fieldset class="block">
+          <legend>Furniture piece to deliver</legend>
+          <div class="seg seg-wide" id="delSourceSeg" role="tablist">
+            <button type="button" data-v="design" class="is-on">From Room Design</button>
+            <button type="button" data-v="catalog">From Catalog</button>
+            <button type="button" data-v="custom">Custom Dimensions</button>
+          </div>
+          <div id="delPaneDesign" class="del-pane">
+            <label class="field"><span>Select piece from current layout</span><select id="delItemDesign"></select></label>
+          </div>
+          <div id="delPaneCatalog" class="del-pane" hidden>
+            <label class="field"><span>Select catalog piece</span><select id="delItemCatalog"></select></label>
+          </div>
+          <div id="delPaneCustom" class="del-pane" hidden>
+            <label class="field"><span>Piece Name</span><input id="delCustomName" value="My Large Furniture"></label>
+            <div class="dims">
+              <label class="field"><span>Width</span><span class="inp"><input type="number" id="delCustomW" value="210"><em>cm</em></span></label>
+              <label class="field"><span>Depth</span><span class="inp"><input type="number" id="delCustomD" value="95"><em>cm</em></span></label>
+              <label class="field"><span>Height</span><span class="inp"><input type="number" id="delCustomH" value="85"><em>cm</em></span></label>
+            </div>
+          </div>
+          <div class="del-cur-dims" id="delCurDims"></div>
+        </fieldset>
+
+        <details class="block">
+          <summary><strong>Building &amp; Route Checkpoints (Customizable)</strong></summary>
+          <p class="note">Adjust the dimensions of your building, elevator, stairs and doors.</p>
+          <div class="del-path-grid">
+            <div class="del-path-card">
+              <h4>🏛️ 1. Building Entrance</h4>
+              <div class="dims">
+                <label class="field"><span>Clear Width</span><span class="inp"><input type="number" id="dpBldW" value="95"><em>cm</em></span></label>
+                <label class="field"><span>Clear Height</span><span class="inp"><input type="number" id="dpBldH" value="215"><em>cm</em></span></label>
+              </div>
+            </div>
+
+            <div class="del-path-card">
+              <h4>🛗 2. Elevator / Lift</h4>
+              <label class="toggle" style="margin-bottom:8px;"><input type="checkbox" id="dpLiftAvail" checked><span>Elevator is available in building</span></label>
+              <div class="dims">
+                <label class="field"><span>Door Width</span><span class="inp"><input type="number" id="dpLiftDoorW" value="80"><em>cm</em></span></label>
+                <label class="field"><span>Door Height</span><span class="inp"><input type="number" id="dpLiftDoorH" value="205"><em>cm</em></span></label>
+              </div>
+              <div class="dims">
+                <label class="field"><span>Car Width</span><span class="inp"><input type="number" id="dpLiftCarW" value="110"><em>cm</em></span></label>
+                <label class="field"><span>Car Depth</span><span class="inp"><input type="number" id="dpLiftCarD" value="130"><em>cm</em></span></label>
+                <label class="field"><span>Ceiling Height</span><span class="inp"><input type="number" id="dpLiftCeilH" value="220"><em>cm</em></span></label>
+              </div>
+            </div>
+
+            <div class="del-path-card">
+              <h4>🪜 3. Staircase &amp; Landing Turn</h4>
+              <div class="dims">
+                <label class="field"><span>Flight Width</span><span class="inp"><input type="number" id="dpStairW" value="95"><em>cm</em></span></label>
+                <label class="field"><span>Landing Width</span><span class="inp"><input type="number" id="dpLandW" value="120"><em>cm</em></span></label>
+                <label class="field"><span>Landing Depth</span><span class="inp"><input type="number" id="dpLandD" value="120"><em>cm</em></span></label>
+                <label class="field"><span>Ceiling Height</span><span class="inp"><input type="number" id="dpStairCeil" value="220"><em>cm</em></span></label>
+              </div>
+            </div>
+
+            <div class="del-path-card">
+              <h4>🚪 4. Apartment Front Door</h4>
+              <div class="dims">
+                <label class="field"><span>Door Width</span><span class="inp"><input type="number" id="dpFrontW" value="85"><em>cm</em></span></label>
+                <label class="field"><span>Door Height</span><span class="inp"><input type="number" id="dpFrontH" value="205"><em>cm</em></span></label>
+              </div>
+            </div>
+
+            <div class="del-path-card">
+              <h4>🏠 5. Internal Room Door</h4>
+              <div class="dims">
+                <label class="field"><span>Door Width</span><span class="inp"><input type="number" id="dpRoomW" value="85"><em>cm</em></span></label>
+                <label class="field"><span>Door Height</span><span class="inp"><input type="number" id="dpRoomH" value="210"><em>cm</em></span></label>
+              </div>
+            </div>
+          </div>
+        </details>
+      </form>
+
+      <div class="delivery-results" id="deliveryResults" aria-live="polite">
+        <!-- Delivery computation rendered here -->
+      </div>
     </div>
   </div>
 </section>
@@ -371,6 +485,73 @@
   </section>
 </dialog>
 
+<!-- ================= CUSTOM FURNITURE DIALOG ================= -->
+<dialog id="dlgCustomFurniture" class="dlg" aria-labelledby="customTitle">
+  <div class="dlg-head"><h2 id="customTitle">Add Custom Furniture</h2><button class="icon-btn" data-close aria-label="Close">×</button></div>
+  <form id="customForm" class="custom-form">
+    <p class="note">Add your own piece with exact dimensions and required clearances.</p>
+    <label class="field"><span>Piece Name</span><input id="cfName" required placeholder="e.g. Ergonomic Standing Desk, Family Sofa"></label>
+    <label class="field"><span>Category</span>
+      <select id="cfCategory">
+        <option value="desk">Desk</option>
+        <option value="bed">Bed</option>
+        <option value="wardrobe">Wardrobe</option>
+        <option value="sofa">Sofa</option>
+        <option value="chair">Chair</option>
+        <option value="bookshelf">Bookshelf</option>
+        <option value="storage">Storage</option>
+        <option value="coffee_table">Coffee Table</option>
+        <option value="tv_unit">TV Unit</option>
+        <option value="dining">Dining Table</option>
+        <option value="bedside">Bedside Table</option>
+        <option value="dressing_table">Dressing Table</option>
+        <option value="other">Other / Custom</option>
+      </select>
+    </label>
+    <div class="dims">
+      <label class="field"><span>Width</span><span class="inp"><input type="number" id="cfW" value="120" required min="10" max="1000"><em>cm</em></span></label>
+      <label class="field"><span>Depth</span><span class="inp"><input type="number" id="cfD" value="60" required min="10" max="1000"><em>cm</em></span></label>
+      <label class="field"><span>Height</span><span class="inp"><input type="number" id="cfH" value="75" required min="10" max="1000"><em>cm</em></span></label>
+    </div>
+    <div class="dims">
+      <label class="field"><span>Front Clearance</span><span class="inp"><input type="number" id="cfFront" value="80" min="0"><em>cm</em></span></label>
+      <label class="field"><span>Door / Drawer Pull</span><span class="inp"><input type="number" id="cfDoor" value="0" min="0"><em>cm</em></span></label>
+      <label class="field"><span>Side Clearance</span><span class="inp"><input type="number" id="cfSide" value="0" min="0"><em>cm</em></span></label>
+    </div>
+    <div class="dims">
+      <label class="field"><span>Price</span><span class="inp inp-lead"><em>₹</em><input type="number" id="cfPrice" value="9999" min="0"></span></label>
+      <label class="toggle" style="align-self: center; margin-top: 14px;"><input type="checkbox" id="cfWall"><span>Wall-mounted</span></label>
+    </div>
+    <div class="row gap" style="margin-top: 16px;">
+      <button type="submit" class="btn btn-primary">Save to Catalog</button>
+      <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ================= EXPORT DIALOG ================= -->
+<dialog id="dlgExport" class="dlg" aria-labelledby="exportTitle">
+  <div class="dlg-head"><h2 id="exportTitle">Export &amp; Share Floor Plan</h2><button class="icon-btn" data-close aria-label="Close">×</button></div>
+  <div class="dlg-sect">
+    <p class="note">Download your layout or generate a print-ready client &amp; moving specification sheet.</p>
+    <div class="export-options">
+      <div class="export-card">
+        <h3>Printable Spec Sheet &amp; Report</h3>
+        <p>Complete layout view, measured room dimensions, area stats, itemized furniture schedule with prices, and validation verification badge.</p>
+        <button type="button" class="btn btn-primary" id="btnPrintReport">Print / Save as PDF</button>
+      </div>
+      <div class="export-card">
+        <h3>Vector SVG Floor Plan</h3>
+        <p>Clean scalable vector graphic with dimensions and clearance zones suitable for CAD or design review.</p>
+        <button type="button" class="btn btn-ghost" id="btnDownloadSvg">Download SVG Plan</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Print Container (Only visible during print) -->
+<div id="printSheet" class="print-sheet" aria-hidden="true"></div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
@@ -378,6 +559,7 @@
 <script src="js/rules.js"></script>
 <script src="js/catalog.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/delivery.js"></script>
 <script src="js/layout.js"></script>
 <script src="js/nl.js"></script>
 <script src="js/ai.js"></script>

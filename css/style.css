@@ -561,3 +561,155 @@ code { font-family: var(--num); font-size: .9em; background: var(--sheet-2); pad
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ---------- room presets ---------- */
+.preset-box {
+  margin: 18px 0; padding: 14px 16px; border-radius: var(--r-panel);
+  background: var(--sheet); border: 1px solid var(--line-2);
+}
+.preset-title {
+  display: block; font-size: 13px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--ink-3); margin-bottom: 10px;
+}
+.preset-chips {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px;
+}
+.preset-chip {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 10px 14px; border-radius: var(--r-ctl); border: 1px solid var(--line);
+  background: var(--sheet-2); text-align: left; cursor: pointer;
+  transition: all .15s var(--ease); font-size: 12.5px; color: var(--ink-2);
+}
+.preset-chip strong { font-size: 13.5px; color: var(--ink); }
+.preset-chip:hover {
+  border-color: var(--tape); background: color-mix(in srgb, var(--tape) 12%, var(--sheet));
+  transform: translateY(-1px);
+}
+
+/* ---------- delivery pathway calculator ---------- */
+.delivery-container {
+  max-width: 1140px; margin: 0 auto; padding: 32px 20px 60px;
+}
+.delivery-head { margin-bottom: 24px; }
+.delivery-layout {
+  display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 28px;
+  align-items: start;
+}
+@media (max-width: 880px) {
+  .delivery-layout { grid-template-columns: 1fr; }
+}
+.delivery-form { display: grid; gap: 18px; }
+.del-pane { margin-top: 12px; }
+.del-cur-dims {
+  margin-top: 14px; padding: 10px 12px; border-radius: var(--r-ctl);
+  background: var(--sheet-2); border: 1px dashed var(--line); font-size: 13px;
+}
+.del-path-grid {
+  display: grid; gap: 14px; margin-top: 12px;
+}
+.del-path-card {
+  padding: 12px; border-radius: var(--r-ctl); background: var(--sheet-2); border: 1px solid var(--line-2);
+}
+.del-path-card h4 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+
+.delivery-results {
+  display: grid; gap: 18px; position: sticky; top: 76px;
+}
+.del-verdict-card {
+  padding: 20px; border-radius: var(--r-panel); border: 1px solid var(--line);
+  background: var(--sheet); box-shadow: var(--shadow);
+}
+.del-verdict-card.is-pass {
+  border-color: var(--pass); background: color-mix(in srgb, var(--pass) 8%, var(--sheet));
+}
+.del-verdict-card.is-tight {
+  border-color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--sheet));
+}
+.del-verdict-card.is-fail {
+  border-color: var(--fail); background: color-mix(in srgb, var(--fail) 10%, var(--sheet));
+}
+.del-verdict-title {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px;
+}
+.del-verdict-title h3 { font-size: 20px; }
+.del-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+  border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+}
+.del-badge.is-pass { background: var(--pass); color: #FFF; }
+.del-badge.is-tight { background: var(--warn); color: #FFF; }
+.del-badge.is-fail { background: var(--fail); color: #FFF; }
+
+.del-checklist {
+  display: grid; gap: 10px; list-style: none; margin: 0; padding: 0;
+}
+.del-step-card {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+  padding: 12px 14px; border-radius: var(--r-ctl); background: var(--sheet);
+  border: 1px solid var(--line-2);
+}
+.del-step-icon { font-size: 20px; }
+.del-step-info strong { display: block; font-size: 14px; }
+.del-step-info p { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
+.del-step-margin { font-size: 13px; font-weight: 700; text-align: right; }
+.del-step-margin.is-pass { color: var(--pass); }
+.del-step-margin.is-tight { color: var(--warn); }
+.del-step-margin.is-fail { color: var(--fail); }
+
+.del-tip-box {
+  padding: 14px; border-radius: var(--r-ctl); background: var(--sheet);
+  border-left: 3px solid var(--tape); font-size: 13px;
+}
+.del-tip-box h4 { margin: 0 0 6px; font-size: 13.5px; }
+.del-tip-box ul { margin: 0; padding-left: 18px; }
+.del-tip-box li { margin-bottom: 4px; color: var(--ink-2); }
+
+/* ---------- export modal ---------- */
+.export-options {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 14px;
+}
+.export-card {
+  padding: 16px; border-radius: var(--r-ctl); background: var(--sheet-2);
+  border: 1px solid var(--line-2); display: flex; flex-direction: column; justify-content: space-between;
+}
+.export-card h3 { font-size: 15px; margin-bottom: 6px; }
+.export-card p { font-size: 13px; color: var(--ink-2); margin-bottom: 14px; line-height: 1.4; }
+
+/* ---------- print sheet ---------- */
+.print-sheet { display: none; }
+@media print {
+  body { background: #FFF !important; color: #000 !important; font-size: 12pt; }
+  .topbar, .stage-top, .command, .dock, .panel, .site-foot, #toast, dialog, .btn, .skip { display: none !important; }
+  #main { display: none !important; }
+  .print-sheet {
+    display: block !important; padding: 20px; max-width: 100%;
+  }
+  .print-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 2pt solid #000; padding-bottom: 8pt; margin-bottom: 16pt;
+  }
+  .print-head h1 { font-size: 22pt; margin: 0; }
+  .print-head span { font-family: monospace; font-size: 10pt; }
+  .print-metrics {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10pt;
+    margin-bottom: 16pt; padding: 8pt; background: #F4F4F4; border-radius: 4pt;
+  }
+  .print-metrics div { font-size: 10pt; }
+  .print-metrics strong { display: block; font-size: 13pt; }
+  .print-plan-box { text-align: center; margin: 16pt 0; page-break-inside: avoid; }
+  .print-plan-box svg { max-width: 80%; height: auto; max-height: 280pt; }
+  .print-table {
+    width: 100%; border-collapse: collapse; margin-top: 14pt; font-size: 10pt;
+  }
+  .print-table th, .print-table td {
+    padding: 6pt 8pt; border-bottom: 1pt solid #DDD; text-align: left;
+  }
+  .print-table th { border-bottom: 1.5pt solid #000; font-weight: bold; }
+  .print-badge-ok { color: #1C7A51; font-weight: bold; }
+  .print-badge-fail { color: #C23B2E; font-weight: bold; }
+  .print-foot {
+    margin-top: 24pt; border-top: 1pt solid #CCC; padding-top: 8pt;
+    font-size: 8.5pt; color: #555; display: flex; justify-content: space-between;
+  }
+}
+

@@ -188,7 +188,7 @@ Reference wording: ${lines.join(' ')}`;
 
   RF.ai = {
     local: new LocalProvider(),
-    proxyUrl() { try { return localStorage.getItem('rf.proxyUrl') || ''; } catch (e) { return ''; } },
+    proxyUrl() { try { return localStorage.getItem('rf.proxyUrl') || 'http://localhost:8787'; } catch (e) { return 'http://localhost:8787'; } },
     setProxyUrl(u) { try { u ? localStorage.setItem('rf.proxyUrl', u) : localStorage.removeItem('rf.proxyUrl'); } catch (e) { /* ignore */ } },
     provider() { const u = this.proxyUrl(); return u ? new GeminiProxyProvider(u) : this.local; },
     /** Run with the configured provider; fall back to the built-in one for text tasks. */

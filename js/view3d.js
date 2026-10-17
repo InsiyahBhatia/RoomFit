@@ -149,22 +149,62 @@
 
     function shape(it) {
       const g = new THREE.Group();
-      const c = RF.CATEGORY_COLORS[it.category] || RF.CATEGORY_COLORS.other;
-      const m = mat(c), dark = mat(new THREE.Color(c).multiplyScalar(0.72).getStyle()), light = mat(new THREE.Color(c).lerp(new THREE.Color('#ffffff'), 0.45).getStyle());
+      let c = RF.CATEGORY_COLORS[it.category] || RF.CATEGORY_COLORS.other;
+      const desc = ((it.color || '') + ' ' + (it.material || '') + ' ' + (it.name || '')).toLowerCase();
+      if (desc.includes('white') || desc.includes('ivory')) c = '#eaecee';
+      else if (desc.includes('black') || desc.includes('charcoal')) c = '#2c3035';
+      else if (desc.includes('walnut') || desc.includes('dark wood')) c = '#594030';
+      else if (desc.includes('oak') || desc.includes('teak') || desc.includes('wood') || desc.includes('brown')) c = '#9e7550';
+
+      const m = mat(c);
+      const dark = mat(new THREE.Color(c).multiplyScalar(0.70).getStyle(), { metalness: 0.1, roughness: 0.7 });
+      const light = mat(new THREE.Color(c).lerp(new THREE.Color('#ffffff'), 0.40).getStyle());
       const w = it.w, d = it.d, h = it.h;
       const add = (bw, bh, bd, mm, x, y, z) => { g.add(box(bw, bh, bd, mm, x, y, z)); };
+
       switch (it.category) {
         case 'bed':
-          add(w, 30, d, dark, 0, 15, 0);
-          add(w - 6, 22, d - 12, light, 0, 41, 4);
-          add(w, h, 8, dark, 0, h / 2, -d / 2 + 4);
-          add(Math.min(60, w / 2 - 10), 12, 35, mat('#f2f2ee'), -w / 4, 58, -d / 2 + 30);
-          if (w > 120) add(Math.min(60, w / 2 - 10), 12, 35, mat('#f2f2ee'), w / 4, 58, -d / 2 + 30);
+          // 4 wooden/metal corner legs
+          add(8, 14, 8, dark, -w / 2 + 6, 7, -d / 2 + 6);
+          add(8, 14, 8, dark, w / 2 - 6, 7, -d / 2 + 6);
+          add(8, 14, 8, dark, -w / 2 + 6, 7, d / 2 - 6);
+          add(8, 14, 8, dark, w / 2 - 6, 7, d / 2 - 6);
+          // Bed base / frame
+          add(w, 18, d, dark, 0, 14 + 9, 0);
+          // High cushioned headboard
+          add(w, h, 10, m, 0, h / 2, -d / 2 + 5);
+          // Headboard subtle quilted accent
+          add(w - 6, h - 22, 2, light, 0, h / 2 + 6, -d / 2 + 10.5);
+          // Mattress
+          add(w - 6, 22, d - 12, mat('#ffffff'), 0, 23 + 11, 4);
+          // Dual plush pillows
+          add(Math.min(60, (w - 16) / 2), 12, 38, mat('#f4f4f0'), -w / 4, 38 + 10, -d / 2 + 32);
+          if (w > 110) add(Math.min(60, (w - 16) / 2), 12, 38, mat('#f4f4f0'), w / 4, 38 + 10, -d / 2 + 32);
+          // Folded throw blanket / duvet over bottom half of bed
+          add(w - 4, 3, d * 0.45, light, 0, 45, d / 4 + 4);
           break;
         case 'sofa': {
-          add(w, 42, d, m, 0, 21, 0);
-          add(w, h - 42, 20, dark, 0, 42 + (h - 42) / 2, -d / 2 + 10);
-          add(16, 62, d, dark, -w / 2 + 8, 31, 0); add(16, 62, d, dark, w / 2 - 8, 31, 0);
+          // 4 sofa legs
+          add(6, 10, 6, dark, -w / 2 + 8, 5, -d / 2 + 8);
+          add(6, 10, 6, dark, w / 2 - 8, 5, -d / 2 + 8);
+          add(6, 10, 6, dark, -w / 2 + 8, 5, d / 2 - 8);
+          add(6, 10, 6, dark, w / 2 - 8, 5, d / 2 - 8);
+          // Base deck
+          add(w, 16, d, dark, 0, 10 + 8, 0);
+          // Armrests on left and right
+          const armW = Math.min(18, Math.max(12, w * 0.1));
+          add(armW, h * 0.65, d, m, -w / 2 + armW / 2, (h * 0.65) / 2 + 10, 0);
+          add(armW, h * 0.65, d, m, w / 2 - armW / 2, (h * 0.65) / 2 + 10, 0);
+          // Backrest
+          add(w - armW * 2, h - 18, 18, m, 0, 18 + (h - 18) / 2, -d / 2 + 9);
+          // Seat cushions (split into 2 or 3 depending on width)
+          const seatW = w - armW * 2;
+          const numCushions = w >= 175 ? 3 : 2;
+          const cW = seatW / numCushions;
+          for (let i = 0; i < numCushions; i++) {
+            const cx = -seatW / 2 + cW * i + cW / 2;
+            add(cW - 2, 14, d - 18, light, cx, 26 + 7, 7);
+          }
           break;
         }
         case 'desk':
@@ -179,12 +219,35 @@
           add(6, 42, 6, mat('#3a444c'), 0, 21, 0);
           add(w * 0.8, 3, d * 0.8, mat('#3a444c'), 0, 2, 0);
           break;
-        case 'wardrobe': case 'bookshelf': case 'storage': case 'dressing_table': case 'tv_unit': {
+        case 'wardrobe': {
+          // Recessed plinth base
+          add(w - 2, 8, d - 2, dark, 0, 4, -1);
+          // Main carcass
+          add(w, h - 12, d, m, 0, 8 + (h - 12) / 2, 0);
+          // Top cornice trim
+          add(w + 2, 4, d + 2, dark, 0, h - 2, 0);
+          // Dynamic doors matching the width
+          const n = w <= 110 ? 2 : w <= 165 ? 3 : 4;
+          const doorW = w / n;
+          for (let i = 1; i < n; i++) {
+            add(1.2, h - 16, 1.2, dark, -w / 2 + doorW * i, (h + 4) / 2, d / 2 + 0.6);
+          }
+          // Ergonomic handles for each door
+          for (let i = 0; i < n; i++) {
+            const handleX = -w / 2 + doorW * i + (i % 2 === 0 ? doorW - 5 : 5);
+            add(1.6, 22, 2.5, dark, handleX, h * 0.48, d / 2 + 1.2);
+          }
+          break;
+        }
+        case 'bookshelf': {
           add(w, h, d, m, 0, h / 2, 0);
-          const lines = it.category === 'bookshelf' ? Math.max(3, Math.round(h / 40)) : 0;
-          for (let i = 1; i < lines; i++) add(w - 4, 2, 2, dark, 0, (h / lines) * i, d / 2 + 0.5);
-          if (it.category === 'wardrobe') { const n = Math.max(2, Math.round(w / 50)); for (let i = 1; i < n; i++) add(1.2, h - 10, 1.5, dark, -w / 2 + (w / n) * i, h / 2, d / 2 + 0.6); }
-          if (it.category === 'storage' && it.drawer) for (let i = 1; i < 4; i++) add(w - 6, 1.2, 1.5, dark, 0, (h / 4) * i, d / 2 + 0.6);
+          const lines = Math.max(3, Math.round(h / 38));
+          for (let i = 1; i < lines; i++) add(w - 4, 2.5, 3, dark, 0, (h / lines) * i, d / 2 + 0.6);
+          break;
+        }
+        case 'storage': case 'dressing_table': case 'tv_unit': {
+          add(w, h, d, m, 0, h / 2, 0);
+          if (it.drawer) for (let i = 1; i < 4; i++) add(w - 6, 1.4, 1.6, dark, 0, (h / 4) * i, d / 2 + 0.6);
           break;
         }
         case 'coffee_table':
@@ -197,7 +260,7 @@
       return g;
     }
 
-    function itemSig(it) { return [it.uid, it.productId, it.w, it.d, it.h, it.category].join('|'); }
+    function itemSig(it) { return [it.uid, it.productId, it.w, it.d, it.h, it.category, it.color, it.material].join('|'); }
 
     function syncItems() {
       const keep = new Set();

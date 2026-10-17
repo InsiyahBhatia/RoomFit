@@ -20,10 +20,49 @@
         { id: 'w1', type: 'window', label: 'the window', wall: 'N', offset: 85, width: 150, sill: 90, height: 120 }
       ],
       obstacles: [], existing: [],
-      // future delivery-path model: room → door → corridor → lift → building entry
+      // delivery-path model: room → door → corridor → lift → building entry
       connections: [{ opening: 'd1', to: { kind: 'corridor', id: null } }]
     };
   }
+
+  const ROOM_PRESETS = {
+    study: {
+      width: 280, length: 340, height: 280, type: 'study',
+      provenance: { width: 'verified', length: 'verified', height: 'verified' },
+      openings: [
+        { id: 'd1', type: 'door', label: 'the door', wall: 'S', offset: 25, width: 85, hinge: 'start', swing: 'in', height: 210 },
+        { id: 'w1', type: 'window', label: 'the window', wall: 'N', offset: 70, width: 140, sill: 90, height: 120 }
+      ],
+      obstacles: [], existing: [], connections: [{ opening: 'd1', to: { kind: 'corridor', id: null } }]
+    },
+    studio: {
+      width: 320, length: 420, height: 280, type: 'bedroom',
+      provenance: { width: 'verified', length: 'verified', height: 'verified' },
+      openings: [
+        { id: 'd1', type: 'door', label: 'the door', wall: 'S', offset: 20, width: 90, hinge: 'start', swing: 'in', height: 210 },
+        { id: 'w1', type: 'window', label: 'the window', wall: 'N', offset: 85, width: 150, sill: 90, height: 120 }
+      ],
+      obstacles: [], existing: [], connections: [{ opening: 'd1', to: { kind: 'corridor', id: null } }]
+    },
+    bedroom: {
+      width: 380, length: 480, height: 290, type: 'bedroom',
+      provenance: { width: 'verified', length: 'verified', height: 'verified' },
+      openings: [
+        { id: 'd1', type: 'door', label: 'the door', wall: 'S', offset: 30, width: 90, hinge: 'start', swing: 'in', height: 210 },
+        { id: 'w1', type: 'window', label: 'the window', wall: 'E', offset: 100, width: 180, sill: 85, height: 130 }
+      ],
+      obstacles: [], existing: [], connections: [{ opening: 'd1', to: { kind: 'corridor', id: null } }]
+    },
+    living: {
+      width: 420, length: 520, height: 300, type: 'living',
+      provenance: { width: 'verified', length: 'verified', height: 'verified' },
+      openings: [
+        { id: 'd1', type: 'door', label: 'the door', wall: 'W', offset: 30, width: 95, hinge: 'start', swing: 'in', height: 210 },
+        { id: 'w1', type: 'window', label: 'the window', wall: 'N', offset: 80, width: 240, sill: 65, height: 160 }
+      ],
+      obstacles: [], existing: [], connections: [{ opening: 'd1', to: { kind: 'corridor', id: null } }]
+    }
+  };
 
   const state = {
     room: sampleRoom(), req: { required: [], style: [], people: null, purpose: null },
@@ -86,7 +125,7 @@
       check = qs.get('check');
       history.replaceState(null, '', '#' + path);
     }
-    const name = { '/': 'landing', '/setup': 'setup', '/design': 'design', '/fit': 'fit' }[path] || 'landing';
+    const name = { '/': 'landing', '/setup': 'setup', '/design': 'design', '/fit': 'fit', '/delivery': 'delivery' }[path] || 'landing';
     $$('.view').forEach(v => { v.hidden = v.dataset.view !== name; });
     $$('[data-nav]').forEach(a => a.classList.toggle('is-on', a.dataset.nav === name));
     document.body.dataset.view = name;
@@ -94,6 +133,7 @@
     if (name === 'setup') renderSetup();
     if (name === 'design') enterDesign();
     if (name === 'fit') renderFitForm();
+    if (name === 'delivery') renderDelivery();
     window.scrollTo(0, 0);
     // deep link: #/fit?check=<productId> or WxDxH (cm)
     if (check && name === 'fit') {
@@ -1238,6 +1278,255 @@
       ${ok && it.productId !== 'custom' ? `<div class="row gap"><button type="button" class="btn btn-small" data-fitadd>Add to my design</button></div>` : ''}`;
   }
 
+  /* ================= delivery pathway calculator ================= */
+
+  let deliverySource = 'design';
+
+  function renderDelivery() {
+    const desSelect = $('#delItemDesign');
+    const layoutItems = (state.items || []).filter(i => !i.existing);
+    if (layoutItems.length) {
+      desSelect.innerHTML = layoutItems.map(i => `<option value="${i.uid}">${esc(i.name)}: ${i.w} × ${i.d} × ${i.h} cm</option>`).join('');
+    } else {
+      desSelect.innerHTML = `<option value="">No furniture in current layout</option>`;
+      if (deliverySource === 'design') {
+        deliverySource = 'catalog';
+        $$('#delSourceSeg button').forEach(b => b.classList.toggle('is-on', b.dataset.v === 'catalog'));
+        $('#delPaneDesign').hidden = true;
+        $('#delPaneCatalog').hidden = false;
+        $('#delPaneCustom').hidden = true;
+      }
+    }
+
+    const catSelect = $('#delItemCatalog');
+    catSelect.innerHTML = RF.catalog.list().map(p => `<option value="${p.id}">${esc(p.name)} (${RF.CATEGORY_LABELS[p.category] || p.category}): ${p.width_cm} × ${p.depth_cm} × ${p.height_cm} cm</option>`).join('');
+
+    const roomDoors = (state.room.openings || []).filter(o => o.type === 'door');
+    if (roomDoors.length) {
+      $('#dpRoomW').value = roomDoors[0].width || 85;
+      $('#dpRoomH').value = roomDoors[0].height || 210;
+    }
+
+    computeDelivery();
+  }
+
+  function getDeliveryItem() {
+    if (deliverySource === 'design') {
+      const uid = $('#delItemDesign').value;
+      const it = (state.items || []).find(i => i.uid === uid);
+      if (it) return { name: it.name, width_cm: it.w, depth_cm: it.d, height_cm: it.h };
+    }
+    if (deliverySource === 'catalog') {
+      const pid = $('#delItemCatalog').value;
+      const p = RF.catalog.get(pid);
+      if (p) return { name: p.name, width_cm: p.width_cm, depth_cm: p.depth_cm, height_cm: p.height_cm };
+    }
+    const n = id => Math.max(1, +$(id).value || 1);
+    return {
+      name: $('#delCustomName').value.trim() || 'Custom Piece',
+      width_cm: n('#delCustomW'),
+      depth_cm: n('#delCustomD'),
+      height_cm: n('#delCustomH')
+    };
+  }
+
+  function getDeliveryPathConfig() {
+    const num = (id, def) => Math.max(10, +$(id).value || def);
+    return {
+      buildingEntry: {
+        label: 'Building Entrance',
+        width: num('#dpBldW', 95),
+        height: num('#dpBldH', 215)
+      },
+      lift: {
+        label: 'Elevator / Lift',
+        doorWidth: num('#dpLiftDoorW', 80),
+        doorHeight: num('#dpLiftDoorH', 205),
+        carWidth: num('#dpLiftCarW', 110),
+        carDepth: num('#dpLiftCarD', 130),
+        ceilingHeight: num('#dpLiftCeilH', 220),
+        available: $('#dpLiftAvail').checked
+      },
+      stairs: {
+        label: 'Staircase & Landing',
+        flightWidth: num('#dpStairW', 95),
+        landingWidth: num('#dpLandW', 120),
+        landingDepth: num('#dpLandD', 120),
+        ceilingHeight: num('#dpStairCeil', 220)
+      },
+      frontDoor: {
+        label: 'Apartment Front Door',
+        width: num('#dpFrontW', 85),
+        height: num('#dpFrontH', 205)
+      },
+      roomDoor: {
+        label: 'Room Doorway',
+        width: num('#dpRoomW', 85),
+        height: num('#dpRoomH', 210)
+      }
+    };
+  }
+
+  function computeDelivery() {
+    const item = getDeliveryItem();
+    if (!item || !item.width_cm) {
+      $('#deliveryResults').innerHTML = `<p class="note">Select or enter a furniture piece to calculate delivery passability.</p>`;
+      return;
+    }
+
+    $('#delCurDims').innerHTML = `Dimensions: <strong class="num">${item.width_cm} W × ${item.depth_cm} D × ${item.height_cm} H cm</strong> · Volume: <span class="num">${((item.width_cm * item.depth_cm * item.height_cm) / 1000000).toFixed(2)} m³</span>`;
+
+    const config = getDeliveryPathConfig();
+    const res = RF.delivery.checkDelivery(item, config);
+
+    const verdictLabel = res.overall === 'pass' ? 'CLEAR ROUTE: FITS' : res.overall === 'tight' ? 'TIGHT FIT: REQUIRES PIVOT' : 'DELIVERY BLOCKED';
+    const verdictCls = res.overall === 'pass' ? 'is-pass' : res.overall === 'tight' ? 'is-tight' : 'is-fail';
+
+    let html = `
+      <div class="del-verdict-card ${verdictCls}">
+        <div class="del-verdict-title">
+          <h3>${esc(item.name)}</h3>
+          <span class="del-badge ${verdictCls}">${verdictLabel}</span>
+        </div>
+        <p><strong>${esc(res.summary)}</strong></p>
+      </div>
+
+      <div class="del-checklist-card">
+        <h4 style="margin: 0 0 12px; font-size: 15px;">Route Checkpoint Breakdown</h4>
+        <ul class="del-checklist">
+    `;
+
+    for (const c of res.checks) {
+      const st = c.result.status;
+      const badgeCls = st === 'pass' ? 'is-pass' : st === 'tight' ? 'is-tight' : 'is-fail';
+      const marginText = st === 'skipped' ? 'N/A' : (c.result.marginCm >= 0 ? `+${c.result.marginCm} cm buffer` : `${c.result.marginCm} cm deficit`);
+      html += `
+        <li class="del-step-card">
+          <span class="del-step-icon" aria-hidden="true">${c.icon}</span>
+          <div class="del-step-info">
+            <strong>${esc(c.name)}: <span class="num">${c.result.orientation}</span></strong>
+            <p>${esc(c.result.note)}</p>
+          </div>
+          <span class="del-step-margin ${badgeCls}">${marginText}</span>
+        </li>
+      `;
+    }
+
+    html += `</ul></div>`;
+
+    if (res.tips.length) {
+      html += `
+        <div class="del-tip-box">
+          <h4>💡 Moving &amp; Delivery Recommendations</h4>
+          <ul>
+            ${res.tips.map(t => `<li>${esc(t)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    $('#deliveryResults').innerHTML = html;
+  }
+
+  /* ================= export & print report ================= */
+
+  function openExport() {
+    $('#dlgExport').showModal();
+  }
+
+  function downloadSvgPlan() {
+    const div = document.createElement('div');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    div.appendChild(svg);
+    const plan = RF.Plan2D(svg, { interactive: false });
+    const v = RF.validate(state.room, state.items, ctx());
+    plan.set({ room: state.room, items: state.items, validation: v, zones: 'none' });
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `RoomFit_FloorPlan_${state.room.width}x${state.room.length}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Floor plan SVG downloaded.');
+    $('#dlgExport').close();
+  }
+
+  function printSpecSheet() {
+    const r = state.room;
+    const v = RF.validate(r, state.items, ctx());
+    const areaSqM = ((r.width * r.length) / 10000).toFixed(1);
+    const areaSqFt = (areaSqM * 10.7639).toFixed(1);
+    const totalSpent = state.items.reduce((s, i) => s + (i.price || 0), 0);
+
+    const div = document.createElement('div');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    div.appendChild(svg);
+    const plan = RF.Plan2D(svg, { interactive: false });
+    plan.set({ room: r, items: state.items, validation: v, zones: 'none' });
+    const planSvgHtml = svg.outerHTML;
+
+    const itemsTable = state.items.map(it => {
+      const rec = v.items[it.uid];
+      const ok = rec && rec.status === 'pass';
+      return `
+        <tr>
+          <td><strong>${esc(it.name)}</strong></td>
+          <td>${RF.CATEGORY_LABELS[it.category] || it.category}</td>
+          <td class="num">${it.w} × ${it.d} × ${it.h} cm</td>
+          <td class="num">${Math.round(it.x)}, ${Math.round(it.y)} (Facing ${it.facing})</td>
+          <td class="num">${it.price ? '₹' + fmt(it.price) : '—'}</td>
+          <td class="${ok ? 'print-badge-ok' : 'print-badge-fail'}">${ok ? 'VERIFIED PASS' : 'FLAGGED'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    $('#printSheet').innerHTML = `
+      <div class="print-head">
+        <div>
+          <h1>ROOMFIT Floor Plan &amp; Verification Report</h1>
+          <p>Deterministic Spatial Geometry &amp; Architectural Clearance Audit</p>
+        </div>
+        <span>Generated: ${new Date().toLocaleDateString()}</span>
+      </div>
+
+      <div class="print-metrics">
+        <div><span>Room Dimensions</span><strong>${r.width} × ${r.length} × ${r.height || 280} cm</strong></div>
+        <div><span>Total Floor Area</span><strong>${areaSqM} m² (${areaSqFt} sq.ft)</strong></div>
+        <div><span>Furniture Count</span><strong>${state.items.length} pieces</strong></div>
+        <div><span>Total Budget Spend</span><strong>₹${fmt(totalSpent)}</strong></div>
+      </div>
+
+      <div class="print-plan-box">
+        ${planSvgHtml}
+      </div>
+
+      <h3>Itemized Furniture Schedule &amp; Clearances</h3>
+      <table class="print-table">
+        <thead>
+          <tr>
+            <th>Item</th><th>Category</th><th>Dimensions (W×D×H)</th><th>Placement (X,Y)</th><th>Price</th><th>Geometry Fit</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsTable || '<tr><td colspan="6">No furniture placed</td></tr>'}
+        </tbody>
+      </table>
+
+      <div class="print-foot">
+        <span>ROOMFIT Geometry Engine · Deterministic Verification</span>
+        <span>Clearance Rules: Walkway ${state.rules.walkWidthCm || 60} cm · Landing ${state.rules.doorLandingCm || 90} cm</span>
+      </div>
+    `;
+
+    $('#dlgExport').close();
+    window.print();
+  }
+
   /* ================= share / save / settings ================= */
 
   function b64enc(s) { return btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
@@ -1328,6 +1617,17 @@
     $('#btnAddObstacle').addEventListener('click', () => { state.room.obstacles.push({ id: RF.uid(), label: 'Pillar', x: 0, y: 0, w: 30, d: 30, h: 280 }); renderObstacles(); roomChanged(); });
     $('#btnAddExisting').addEventListener('click', () => { state.room.existing.push({ uid: RF.uid(), name: 'Bed (existing)', category: 'bed', w: 150, d: 200, h: 90, x: 75, y: 100, facing: 'S' }); renderExisting(); roomChanged(); });
     $('#btnSampleRoom').addEventListener('click', () => { state.room = sampleRoom(); renderSetup(); roomChanged(); toast('Sample room loaded: 320 × 410 cm.'); });
+    $('#presetChips').addEventListener('click', e => {
+      const chip = e.target.closest('[data-preset]');
+      if (!chip) return;
+      const p = ROOM_PRESETS[chip.dataset.preset];
+      if (p) {
+        state.room = clone(p);
+        renderSetup();
+        roomChanged();
+        toast(`Loaded ${p.type} preset: ${p.width} × ${p.length} cm.`);
+      }
+    });
     $('#btnToDesign').addEventListener('click', e => { if (!(state.room.width >= 100 && state.room.length >= 100)) { e.preventDefault(); toast('Add the room width and length first.'); } });
     $('#photoInput').addEventListener('change', e => {
       const files = Array.from(e.target.files || []).slice(0, 4);
@@ -1366,6 +1666,70 @@
     $('#btnRulesReset').addEventListener('click', () => { state.rules = {}; renderPanel(); schedulePlan(); });
     $('#catSearch').addEventListener('input', renderCatalog);
     $('#catList').addEventListener('click', e => { const b = e.target.closest('[data-add]'); if (b) addProduct(RF.catalog.get(b.dataset.add)); });
+
+    // custom piece builder
+    $('#btnAddCustomItem').addEventListener('click', () => {
+      $('#customForm').reset();
+      $('#dlgCustomFurniture').showModal();
+    });
+    $('#customForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const name = $('#cfName').value.trim() || 'Custom Piece';
+      const cat = $('#cfCategory').value;
+      const w = +$('#cfW').value;
+      const d = +$('#cfD').value;
+      const h = +$('#cfH').value;
+      const front = +$('#cfFront').value || 0;
+      const door = +$('#cfDoor').value || 0;
+      const side = +$('#cfSide').value || 0;
+      const price = +$('#cfPrice').value || 0;
+      const wall = $('#cfWall').checked;
+
+      const newItem = RF.catalog.addCustom({
+        name, category: cat,
+        width_cm: w, depth_cm: d, height_cm: h,
+        clearance_front_cm: front,
+        door_clearance_cm: door,
+        clearance_side_cm: side,
+        price_inr: price,
+        requires_wall_mount: wall
+      });
+      $('#dlgCustomFurniture').close();
+      renderCatalog();
+      toast(`Custom piece "${name}" saved to catalog.`);
+      if (document.body.dataset.view === 'design') addProduct(newItem);
+    });
+
+    // export modal
+    $('#btnExport').addEventListener('click', openExport);
+    $('#btnExportPlan').addEventListener('click', openExport);
+    $('#btnPrintReport').addEventListener('click', printSpecSheet);
+    $('#btnDownloadSvg').addEventListener('click', downloadSvgPlan);
+
+    // delivery controls
+    $$('#delSourceSeg button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        deliverySource = btn.dataset.v;
+        $$('#delSourceSeg button').forEach(b => b.classList.toggle('is-on', b === btn));
+        $('#delPaneDesign').hidden = deliverySource !== 'design';
+        $('#delPaneCatalog').hidden = deliverySource !== 'catalog';
+        $('#delPaneCustom').hidden = deliverySource !== 'custom';
+        computeDelivery();
+      });
+    });
+    $('#delItemDesign').addEventListener('change', computeDelivery);
+    $('#delItemCatalog').addEventListener('change', computeDelivery);
+    ['#delCustomName', '#delCustomW', '#delCustomD', '#delCustomH'].forEach(id => {
+      $(id).addEventListener('input', computeDelivery);
+    });
+    ['#dpBldW', '#dpBldH', '#dpLiftAvail', '#dpLiftDoorW', '#dpLiftDoorH', '#dpLiftCarW', '#dpLiftCarD', '#dpLiftCeilH',
+     '#dpStairW', '#dpLandW', '#dpLandD', '#dpStairCeil', '#dpFrontW', '#dpFrontH', '#dpRoomW', '#dpRoomH'].forEach(id => {
+      const el = $(id);
+      if (el) {
+        el.addEventListener('input', computeDelivery);
+        el.addEventListener('change', computeDelivery);
+      }
+    });
 
     // stage
     $('#layoutTabs').addEventListener('click', e => { const b = e.target.closest('[data-layout]'); if (b) activate(b.dataset.layout); });

@@ -185,9 +185,14 @@
       const sf = f.shortfalls && f.shortfalls[0];
       quick = sf ? `<li class="is-fail"><span class="ic">×</span><span>${esc(sf.label)}: short by <span class="num">${sf.short} cm</span></span></li>` : `<li class="is-fail"><span class="ic">×</span><span>${esc(f.reasons[0] || 'Fails a check')}</span></li>`;
     } else quick = `<li class="is-unknown"><span class="ic">?</span><span>Dimensions unavailable. Cannot verify physical fit.</span></li>`;
-    const img = p.imageUrl ? `<img src="${esc(p.imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add('is-noimg');this.remove()">` : '';
+    const cat = RF.shopCategory(p.category + ' ' + p.name);
+    const catColor = RF.CATEGORY_COLORS[cat] || RF.CATEGORY_COLORS.other;
+    const imgSrc = p.imageUrl || (RF.furnitureImage ? RF.furnitureImage(p) : '');
+    const imgHtml = imgSrc ? `<img src="${esc(imgSrc)}" alt="${esc(p.name)}" loading="lazy" referrerpolicy="no-referrer" style="width:100%; height:100%; object-fit:contain; border-radius:8px; padding:4px;" onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\\'font-size:26px\\'>🪑</span>'">` : '';
     return `<li class="pcard is-${s.cls} ${open ? 'is-open' : ''}" data-id="${esc(p.id)}">
-      <div class="pimg ${img ? '' : 'is-noimg'}" style="--cat:${RF.CATEGORY_COLORS[RF.shopCategory(p.category + ' ' + p.name)] || RF.CATEGORY_COLORS.other}">${img}</div>
+      <div class="pimg" style="--cat:${catColor}; width:88px; height:88px; border-radius:8px; overflow:hidden; border:1px solid rgba(0,0,0,0.1); background:#ffffff; flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+        ${imgHtml}
+      </div>
       <div class="pmain">
         <p class="pstatus"><span class="ic">${s.ic}</span>${s.text}${f.status === 'fits' && f.confidence === 'verified' ? '' : ''}</p>
         <h4>${esc(p.name)}</h4>
@@ -224,7 +229,7 @@
       : f.facts.map(x => `<tr><td>${esc(x.label)}</td><td class="${x.text ? '' : 'num'}">${x.text ? esc(x.text) : x.value + (x.plus ? '+' : '') + ' ' + x.unit}</td></tr>`).join('')
         + (f.status === 'partial' ? f.reasons.slice(0, 2).map(r => `<tr><td colspan="2" class="reason">! ${esc(r)}</td></tr>`).join('') : '');
     return `<div class="pdetails">
-      ${p.imageUrl ? `<img class="pbig" src="${esc(p.imageUrl)}" alt="${esc(p.name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"><p class="note">Image is for reference only. ROOMFIT uses the listed dimensions, not the picture.</p>` : ''}
+      ${p.imageUrl ? `<div class="pbig-wrap" style="text-align:center; background:#ffffff; border-radius:10px; padding:12px; margin-bottom:12px; border:1px solid rgba(0,0,0,0.08);"><img class="pbig" src="${esc(p.imageUrl)}" alt="${esc(p.name)}" loading="lazy" referrerpolicy="no-referrer" style="max-height:240px; max-width:100%; object-fit:contain;" onerror="this.parentElement.remove()"><p class="note" style="margin-top:6px; font-weight:500;">Actual product photo · Dimensions: ${esc(p.dimensionsText || '')}</p></div>` : ''}
       <h5>${f.status === 'does_not_fit' ? "Why this doesn't fit" : 'Why this fits'}</h5>
       <table class="why">${rows}</table>
       <p class="note">Numbers come from ROOMFIT's geometry engine${f.positionsTested ? `, which tested ${fmt(f.positionsTested)} positions and orientations` : ''}.</p>

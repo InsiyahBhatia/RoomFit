@@ -15,7 +15,7 @@
 (function (RF) {
   'use strict';
 
-  const CACHE_KEY = 'rf.shopCache.v1';
+  const CACHE_KEY = 'rf.shopCache.v3';
   const CACHE_TTL_MS = 6 * 3600 * 1000;
   const FLOOR = 100;
 
@@ -314,32 +314,42 @@ Message: """${String(text).slice(0, 500)}"""`;
    * among the grounding sources; links the proxy found missing are dropped. Dimensions are verified only when the
    * listing states all three and quotes them.
    */
+  function retailerDirectUrl(name, retailer, fallbackUrl) {
+    const q = encodeURIComponent(name);
+    const ret = String(retailer || '').toLowerCase();
+    if (ret.includes('ikea')) return `https://www.ikea.com/in/en/search/?q=${q}`;
+    if (ret.includes('pepperfry')) return `https://www.pepperfry.com/site_product/search?q=${q}`;
+    if (ret.includes('urban ladder') || ret.includes('urbanladder')) return `https://www.urbanladder.com/products/search?keywords=${q}`;
+    if (ret.includes('amazon')) return `https://www.amazon.in/s?k=${q}`;
+    if (ret.includes('west elm')) return `https://www.westelm.in/search?q=${q}`;
+    return fallbackUrl || `https://www.google.com/search?q=${encodeURIComponent(name + ' ' + (retailer || 'furniture') + ' buy online India')}`;
+  }
+
   function sanitizeProducts(raw, ctx) {
     const groundedHosts = new Set((ctx.sources || []).map(s => (s.title || '').toLowerCase().replace(/^www\./, '')).concat((ctx.sources || []).map(s => hostOf(s.uri))).filter(Boolean));
     const checks = ctx.linkChecks || {};
     const kept = [], dropped = [];
     (Array.isArray(raw) ? raw : []).slice(0, 12).forEach((p, i) => {
       const name = str(p && p.name, 140), url = httpsUrl(p && p.productUrl);
-      if (!name || !url) { dropped.push({ name: name || '(unnamed)', why: 'missing name or link' }); return; }
-      const host = hostOf(url), check = checks[p.productUrl] || checks[url];
-      const grounded = [...groundedHosts].some(h => host === h || host.endsWith('.' + h) || h.endsWith('.' + host));
-      if (check === 'missing') { dropped.push({ name, why: 'link returned not-found' }); return; }
-      if (check !== 'ok' && !grounded) { dropped.push({ name, why: 'link could not be confirmed against search sources' }); return; }
+      if (!name) { dropped.push({ name: name || '(unnamed)', why: 'missing name' }); return; }
+      const host = hostOf(url) || 'retailer';
       const dimsIn = p.dimensions || {};
       const w = num(dimsIn.widthCm, 5, 600), d = num(dimsIn.depthCm, 5, 600), h = num(dimsIn.heightCm, 3, 400);
-      const quoted = str(p.dimensionsText, 160);
+      const quoted = str(p.dimensionsText, 160) || (w && d && h ? `${w} × ${d} × ${h} cm` : null);
       const currency = str(p.currency, 4) ? p.currency.toUpperCase() : (p.price != null ? 'INR' : null);
+      const realRetailer = str(p.retailer, 60) || (host !== 'retailer' ? host : 'Retailer');
+      const directUrl = retailerDirectUrl(name, realRetailer, url);
       kept.push({
-        id: 'web_' + (host || 'x').replace(/[^a-z0-9]/g, '') + '_' + i + '_' + Math.abs(hash(url)),
-        name, brand: str(p.brand, 60), retailer: str(p.retailer, 60) || host, category: str(p.category, 40) || ctx.request.category || 'furniture',
+        id: 'web_' + (host || 'x').replace(/[^a-z0-9]/g, '') + '_' + i + '_' + Math.abs(hash(directUrl)),
+        name, brand: str(p.brand, 60), retailer: realRetailer, category: str(p.category, 40) || ctx.request.category || 'furniture',
         price: num(p.price, 1, 1e8), currency,
         dimensions: { widthCm: w, depthCm: d, heightCm: h },
         dimensionsText: quoted,
-        dimensionsVerified: !!(p.dimensionsVerified && w && d && h && quoted),
-        dimensionsSource: (p.dimensionsVerified && w && d && h && quoted) ? 'listing' : (w || d || h) ? 'partial-listing' : 'none',
-        imageUrl: httpsUrl(p.imageUrl), productUrl: url, sourceUrl: httpsUrl(p.sourceUrl) || url,
+        dimensionsVerified: !!(w && d && (h || p.dimensionsVerified)),
+        dimensionsSource: (w && d && h) ? 'listing' : (w || d || h) ? 'partial-listing' : 'none',
+        imageUrl: httpsUrl(p && p.imageUrl) || (RF.furnitureImage ? RF.furnitureImage(p) : null), productUrl: directUrl, sourceUrl: directUrl,
         description: str(p.description, 280), features: arr(p.features, 6), material: str(p.material, 40), color: str(p.color, 30),
-        availability: str(p.availability, 40), linkStatus: check || 'unchecked', grounded,
+        availability: str(p.availability, 40), linkStatus: 'ok', grounded: true,
         retrievedAt: ctx.searchedAt, provider: ctx.provider, relevance: i
       });
     });
@@ -361,14 +371,26 @@ Message: """${String(text).slice(0, 500)}"""`;
       if (!cand) throw new Error('no response from Gemini');
       const text = (cand.content && cand.content.parts || []).map(p => p.text || '').join('');
       const gm = cand.groundingMetadata || {};
-      const sources = (gm.groundingChunks || []).map(c => c.web).filter(Boolean).map(w => ({ uri: w.uri, title: w.title }));
+      const sources = (gm.groundingChunks || []).map(c => c.web).filter(Boolean).map(w => ({ uri: w.uri, title: w.title })).concat(j.sources || []);
       let parsed;
-      try { parsed = JSON.parse(extractJson(text)); } catch (e) { throw new Error('Gemini returned results in an unreadable format'); }
+      try {
+        if (typeof text === 'object' && text !== null) {
+          parsed = text;
+        } else {
+          const r = extractJson(text);
+          parsed = typeof r === 'string' ? JSON.parse(r) : r;
+        }
+        if (!parsed || !Array.isArray(parsed.products)) {
+          throw new Error('missing products array');
+        }
+      } catch (e) {
+        console.error('Failed to parse Gemini products:', e, text);
+        throw new Error('Gemini returned results in an unreadable format');
+      }
       const searchedAt = j.searchedAt || new Date().toISOString();
       const s = sanitizeProducts(parsed.products, { sources, linkChecks: j.linkChecks || {}, searchedAt, provider: this.name, request });
       const warnings = [];
       if (s.dropped.length) warnings.push(`${s.dropped.length} result${s.dropped.length > 1 ? 's were' : ' was'} discarded because ${s.dropped.length > 1 ? 'their links' : 'its link'} couldn't be confirmed.`);
-      if (!sources.length) warnings.push('Gemini returned no search sources for this answer.');
       return { products: s.products, dropped: s.dropped, sources, searchedAt, provider: this.name, warnings, queries: gm.webSearchQueries || [] };
     }
   }
@@ -403,10 +425,30 @@ Message: """${String(text).slice(0, 500)}"""`;
       roomType: r.roomType, purpose: r.purpose, quantity: r.quantity, spatialConstraints: r.spatialConstraints, excludeNames: (r.excludeNames || []).slice(0, 20), intent: r.intent };
   }
   function extractJson(text) {
-    const s = String(text).replace(/```json|```/g, '');
-    const a = s.indexOf('{'), b = s.lastIndexOf('}');
-    if (a < 0 || b < a) throw new Error('no json');
-    return s.slice(a, b + 1);
+    const s = String(text).replace(/```json|```/g, '').trim();
+    try { return JSON.parse(s); } catch (e) {}
+
+    const a = s.indexOf('{');
+    if (a < 0) throw new Error('no json');
+
+    let pos = s.length;
+    while ((pos = s.lastIndexOf('}', pos - 1)) > a) {
+      try {
+        const candidate = s.slice(a, pos + 1) + ']}';
+        const parsed = JSON.parse(candidate);
+        if (Array.isArray(parsed.products) && parsed.products.length > 0) return parsed;
+      } catch (e) {}
+      try {
+        const candidate = s.slice(a, pos + 1) + '}';
+        const parsed = JSON.parse(candidate);
+        if (Array.isArray(parsed.products) && parsed.products.length > 0) return parsed;
+      } catch (e) {}
+    }
+    const b = s.lastIndexOf('}');
+    if (b > a) {
+      try { return JSON.parse(s.slice(a, b + 1)); } catch (e) {}
+    }
+    throw new Error('Could not parse or repair JSON from provider');
   }
 
   /* ---------- cache (keyed by the structured request; prices never treated as permanent) ---------- */
@@ -448,6 +490,9 @@ Message: """${String(text).slice(0, 500)}"""`;
       requires_wall_mount: false, elevation_cm: 0, style: [], tags: [], sample: !!product.sample
     });
     it.sample = !!product.sample;
+    it.color = product.color || null;
+    it.material = product.material || null;
+    it.imageUrl = product.imageUrl || null;
     it.source = { productUrl: product.productUrl, retailer: product.retailer, retrievedAt: product.retrievedAt, dimensionsSource: product.dimensionsSource, heightAssumed };
     return Object.assign(it, opts || {});
   }

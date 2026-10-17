@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ROOMFIT delivery pathway tests</title>
+</head>
+<body>
+<pre id="out">running…</pre>
+<script src="../js/delivery.js"></script>
+<script>
+const log = [], fails = [];
+function ok(name, cond, extra) {
+  (cond ? log : fails).push((cond ? 'PASS ' : 'FAIL ') + name + (extra ? ' — ' + extra : ''));
+}
+
+try {
+  const D = RF.delivery;
+
+  // Test 1: Standard compact desk (100 x 50 x 75) passes everywhere
+  const desk = { name: 'Compact Desk', width_cm: 100, depth_cm: 50, height_cm: 75 };
+  let res = D.checkDelivery(desk);
+  ok('compact desk delivery passes', res.overall === 'pass', res.summary);
+
+  // Test 2: Standard doorway pass
+  let doorCheck = D.checkDoorway(desk, { width: 85, height: 205 });
+  ok('compact desk fits doorway upright', doorCheck.status === 'pass', doorCheck.note);
+
+  // Test 3: Big 3-seater sofa (220 x 95 x 85) through standard 80cm door
+  // width 220, depth 95, height 85. Smallest dimension is height 85cm.
+  // With 80cm door, 85cm is too wide upright, but with diagonal tilt or if legs detached...
+  const bigSofa = { name: 'Grand 3-Seater', width_cm: 220, depth_cm: 95, height_cm: 85 };
+  let sofaDoor = D.checkDoorway(bigSofa, { width: 80, height: 205 });
+  ok('big sofa tight or tilted in 80cm door', sofaDoor.status === 'tight' || sofaDoor.status === 'fail', sofaDoor.note);
+
+  // Test 4: Giant wardrobe (240 x 70 x 220) vs standard elevator (car depth 130cm, ceiling 220cm)
+  const hugeWard = { name: 'Giant Wardrobe', width_cm: 240, depth_cm: 70, height_cm: 220 };
+  let liftCheck = D.checkElevator(hugeWard, { doorWidth: 80, doorHeight: 205, carWidth: 110, carDepth: 130, ceilingHeight: 220, available: true });
+  ok('giant wardrobe exceeds elevator', liftCheck.status === 'fail', liftCheck.note);
+
+  // Test 5: Complete delivery verdict for oversize piece
+  let hugeRes = D.checkDelivery(hugeWard);
+  ok('huge wardrobe fails overall or requires special routing', hugeRes.overall === 'fail' || hugeRes.overall === 'tight', hugeRes.summary);
+
+  document.getElementById('out').textContent = (fails.length ? fails.length + ' FAILED\n' : 'ALL PASSED\n') + fails.concat(log).join('\n');
+} catch (e) {
+  document.getElementById('out').textContent = 'ERROR: ' + e.message + '\n' + e.stack;
+}
+</script>
+</body>
+</html>

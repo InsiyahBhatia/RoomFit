@@ -1,0 +1,13 @@
+{
+  "name": "roomfit",
+  "version": "1.1.0",
+  "description": "Spatial furniture fit checker and layout optimizer with AI product discovery and delivery pathway verification.",
+  "scripts": {
+    "start": "node proxy/dev-proxy.js",
+    "proxy": "node proxy/dev-proxy.js",
+    "test": "node tests/delivery.html"
+  },
+  "keywords": ["interior-design", "spatial-geometry", "threejs", "room-planner", "ai-shopping"],
+  "author": "InsiyahBhatia",
+  "license": "MIT"
+}
